@@ -1,0 +1,147 @@
+---
+export const prerender = false;
+import AdminShell from '~/components/admin/AdminShell.astro';
+import { requireAdminPage, redirectToLogin } from '~/lib/auth/guard';
+import { env } from 'cloudflare:workers';
+import { getLocation } from '~/lib/admin/locations';
+import { listExceptions, listTemplates } from '~/lib/admin/schedules';
+
+const auth = await requireAdminPage(Astro.request);
+if (!auth) return redirectToLogin();
+
+const id = Number.parseInt(Astro.params.id ?? '', 10);
+const location = await getLocation(env.DB, id);
+if (!location) return new Response('Not found', { status: 404 });
+
+const templates = await listTemplates(env.DB, id);
+const exceptions = await listExceptions(env.DB, id);
+const weekdays = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
+---
+
+<AdminShell title={location.name_th} email={auth.user.email} csrfToken={auth.session.csrfToken} active="locations">
+  <section class="rounded-2xl border border-rule bg-white p-4">
+    <h2 class="font-head text-subhead font-semibold">ข้อมูลสถานที่</h2>
+    <form id="loc-form" class="mt-3 grid gap-3">
+      <input type="hidden" name="id" value={id} />
+      <label class="text-meta">ชื่อ (TH)<input name="name_th" value={location.name_th} class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" required /></label>
+      <label class="text-meta">ชื่อ (EN)<input name="name_en" value={location.name_en} class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" required /></label>
+      <label class="text-meta">โหมดจอง
+        <select name="booking_mode" class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3">
+          <option value="slots" selected={location.booking_mode === 'slots'}>slots</option>
+          <option value="external" selected={location.booking_mode === 'external'}>external</option>
+        </select>
+      </label>
+      <label class="text-meta">ช่องทางภายนอก<input name="external_channel_label" value={location.external_channel_label ?? ''} class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+      <button type="submit" class="min-h-11 rounded-xl bg-teal-deep px-4 font-medium text-white">บันทึก</button>
+    </form>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-rule bg-teal-wash p-4">
+    <h2 class="font-head text-subhead font-semibold">ปิดวัน / งดคลินิก (ด่วน)</h2>
+    <form id="exc-form" class="mt-3 grid gap-3 sm:grid-cols-2">
+      <label class="text-meta sm:col-span-2">วันที่ (YYYY-MM-DD)
+        <input name="exception_date" type="date" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" />
+      </label>
+      <label class="text-meta sm:col-span-2">เหตุผล
+        <input name="reason" placeholder="ประชุม / ดูงานต่างจังหวัด" class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" />
+      </label>
+      <button type="submit" class="min-h-11 rounded-xl bg-teal-deep px-4 font-medium text-white sm:col-span-2">เพิ่มวันปิด</button>
+    </form>
+    <ul class="mt-4 space-y-2">
+      {exceptions.map((ex) => (
+        <li class="flex items-center justify-between gap-2 rounded-xl bg-white p-3 text-meta">
+          <span>{ex.exception_date} {ex.reason ? `— ${ex.reason}` : ''}</span>
+          <button type="button" data-del-exc={ex.id} class="min-h-11 min-w-11 rounded-lg border border-rule px-3">ลบ</button>
+        </li>
+      ))}
+    </ul>
+  </section>
+
+  <section class="mt-6 rounded-2xl border border-rule bg-white p-4">
+    <h2 class="font-head text-subhead font-semibold">ตารางประจำสัปดาห์</h2>
+    <ul class="mt-3 space-y-2 text-meta">
+      {templates.map((t) => (
+        <li class="rounded-xl border border-rule p-3">
+          วัน{weekdays[t.day_of_week - 1]} {t.start_time}–{t.end_time} · {t.slot_duration_minutes} นาที
+        </li>
+      ))}
+    </ul>
+    <form id="tpl-form" class="mt-4 grid gap-3 border-t border-rule pt-4 sm:grid-cols-2">
+      <label class="text-meta">วัน (1=จ … 7=อา)
+        <input name="day_of_week" type="number" min="1" max="7" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" />
+      </label>
+      <label class="text-meta">ระยะนัด (นาที)
+        <input name="slot_duration_minutes" type="number" value="20" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" />
+      </label>
+      <label class="text-meta">เริ่ม<input name="start_time" placeholder="09:00" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+      <label class="text-meta">สิ้นสุด<input name="end_time" placeholder="12:00" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+      <label class="text-meta sm:col-span-2">มีผลตั้งแต่<input name="valid_from" type="date" required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+      <button type="submit" class="min-h-11 rounded-xl border border-rule bg-teal-wash sm:col-span-2">เพิ่ม template</button>
+    </form>
+  </section>
+
+  <script define:vars={{ locationId: id, csrfToken: auth.session.csrfToken }}>
+    window.__ADMIN_CSRF__ = csrfToken;
+    const hdr = () => ({ 'X-Admin-CSRF': csrfToken, 'content-type': 'application/json' });
+
+    document.getElementById('loc-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd.entries());
+      body.is_active = 1;
+      body.display_order = 0;
+      await fetch(`/api/admin/locations/${locationId}`, { method: 'PATCH', headers: hdr(), body: JSON.stringify(body), credentials: 'same-origin' });
+      alert('บันทึกแล้ว');
+    });
+
+    document.getElementById('exc-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch('/api/admin/schedules/exceptions', {
+        method: 'POST',
+        headers: hdr(),
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          location_id: locationId,
+          exception_date: fd.get('exception_date'),
+          is_full_day: 1,
+          closure_start: null,
+          closure_end: null,
+          reason: fd.get('reason') || null,
+        }),
+      });
+      location.reload();
+    });
+
+    document.querySelectorAll('[data-del-exc]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        await fetch(`/api/admin/schedules/exceptions?id=${btn.dataset.delExc}`, {
+          method: 'DELETE',
+          headers: hdr(),
+          credentials: 'same-origin',
+        });
+        location.reload();
+      });
+    });
+
+    document.getElementById('tpl-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      await fetch('/api/admin/schedules/templates', {
+        method: 'POST',
+        headers: hdr(),
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          location_id: locationId,
+          day_of_week: Number(fd.get('day_of_week')),
+          start_time: fd.get('start_time'),
+          end_time: fd.get('end_time'),
+          slot_duration_minutes: Number(fd.get('slot_duration_minutes')),
+          valid_from: fd.get('valid_from'),
+          valid_until: null,
+        }),
+      });
+      location.reload();
+    });
+  </script>
+</AdminShell>

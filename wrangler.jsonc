@@ -20,11 +20,7 @@
   // Adapter 14 (@astrojs/cloudflare 14.x): Vite validates `main` at config time,
   // so this must exist before `astro build`. Wrangler resolves the built Worker
   // from the same entry during deploy (output under `dist/server/`).
-  // The queue and scheduled handlers arrive with the booking system; until
-  // then the adapter's own entrypoint is the Worker. Pointing `main` at a
-  // source file that does not exist yet breaks the build for every commit
-  // before the one that adds it.
-  "main": "@astrojs/cloudflare/entrypoints/server",
+  "main": "./src/worker.ts",
 
   "assets": {
     // Astro 7 + adapter 14: prerendered static files live under `dist/client/`.

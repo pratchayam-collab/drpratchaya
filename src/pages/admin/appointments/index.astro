@@ -1,0 +1,233 @@
+---
+export const prerender = false;
+import AdminShell from '~/components/admin/AdminShell.astro';
+import { requireAdminPage, redirectToLogin } from '~/lib/auth/guard';
+import { env } from 'cloudflare:workers';
+import { listLocations } from '~/lib/admin/locations';
+
+const auth = await requireAdminPage(Astro.request);
+if (!auth) return redirectToLogin();
+
+const locations = await listLocations(env.DB);
+const initialStatus = Astro.url.searchParams.get('status') ?? '';
+---
+
+<AdminShell
+  title="คิวนัดหมาย"
+  email={auth.user.email}
+  csrfToken={auth.session.csrfToken}
+  active="appointments"
+>
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div class="flex flex-wrap gap-2">
+      <label class="text-meta text-text-2">
+        สถานที่
+        <select id="filter-location" class="mt-1 min-h-11 w-full min-w-[10rem] rounded-xl border border-rule px-3 sm:w-auto">
+          <option value="">ทั้งหมด</option>
+          {locations.map((l) => (
+            <option value={l.id}>{l.name_th}</option>
+          ))}
+        </select>
+      </label>
+      <label class="text-meta text-text-2">
+        สถานะ
+        <select id="filter-status" class="mt-1 min-h-11 w-full min-w-[10rem] rounded-xl border border-rule px-3 sm:w-auto">
+          <option value="">ทั้งหมด</option>
+          <option value="pending" selected={initialStatus === 'pending'}>รอยืนยัน</option>
+          <option value="confirmed">ยืนยันแล้ว</option>
+          <option value="completed">เสร็จสิ้น</option>
+          <option value="declined_by_clinic">ปฏิเสธ</option>
+          <option value="rescheduled">เลื่อนแล้ว (เก่า)</option>
+        </select>
+      </label>
+    </div>
+    <button
+      type="button"
+      id="refresh-board"
+      class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl border border-rule bg-white px-4 text-meta font-medium"
+    >
+      รีเฟรช
+    </button>
+  </div>
+
+  <div id="board" class="mt-5 space-y-4" aria-live="polite"></div>
+  <p id="board-error" class="mt-3 hidden text-meta text-teal-deep" role="alert"></p>
+
+  <dialog id="reschedule-dialog" class="w-[min(100%,24rem)] rounded-2xl border border-rule p-4 backdrop:bg-black/40">
+    <form method="dialog" class="space-y-3">
+      <h2 class="font-head text-subhead font-semibold">เลื่อนนัด</h2>
+      <p class="text-meta text-text-2" id="reschedule-label"></p>
+      <label class="block text-meta">ช่วงเวลาใหม่</label>
+      <select id="reschedule-slot" class="min-h-11 w-full rounded-xl border border-rule px-3" required></select>
+      <div class="flex gap-2 pt-2">
+        <button type="submit" class="min-h-11 flex-1 rounded-xl bg-teal-deep text-white">ยืนยันเลื่อน</button>
+        <button type="button" id="reschedule-cancel" class="min-h-11 min-w-11 rounded-xl border border-rule px-4">ยกเลิก</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script define:vars={{ csrfToken: auth.session.csrfToken }}>
+    window.__ADMIN_CSRF__ = csrfToken;
+
+    const STATUS_LABEL = {
+      pending: 'รอยืนยัน',
+      confirmed: 'ยืนยันแล้ว',
+      completed: 'เสร็จสิ้น',
+      declined_by_clinic: 'ปฏิเสธ',
+      rescheduled: 'เลื่อนแล้ว',
+      cancelled_by_patient: 'ผู้ป่วยยกเลิก',
+      no_show: 'ไม่มา',
+    };
+
+    function csrf() {
+      return window.__ADMIN_CSRF__ ?? '';
+    }
+
+    async function api(path, method = 'GET', body) {
+      const headers = {};
+      if (method !== 'GET') {
+        headers['X-Admin-CSRF'] = csrf();
+        headers['content-type'] = 'application/json';
+      }
+      const res = await fetch(path, {
+        method,
+        headers,
+        credentials: 'same-origin',
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      return res;
+    }
+
+    function formatSlot(start, end) {
+      const d = new Date(start);
+      const opts = { timeZone: 'Asia/Bangkok', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+      const a = d.toLocaleString('th-TH', opts);
+      const e = new Date(end).toLocaleTimeString('th-TH', { timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit' });
+      return `${a}–${e} น.`;
+    }
+
+    let rescheduleAppointmentId = null;
+
+    function card(a) {
+      const link =
+        a.rescheduled_to_id
+          ? `<p class="text-micro text-text-2">→ นัดใหม่ #${a.rescheduled_to_id}</p>`
+          : a.rescheduled_from_id
+            ? `<p class="text-micro text-text-2">← จากนัด #${a.rescheduled_from_id}</p>`
+            : '';
+      const actions =
+        a.status === 'pending'
+          ? `<div class="mt-3 flex flex-wrap gap-2">
+          <button data-act="confirm" data-id="${a.id}" class="min-h-11 min-w-11 flex-1 rounded-xl bg-teal-deep px-3 text-meta font-medium text-white sm:flex-none">ยืนยัน</button>
+          <button data-act="decline" data-id="${a.id}" class="min-h-11 min-w-11 flex-1 rounded-xl border border-rule px-3 text-meta font-medium sm:flex-none">ปฏิเสธ</button>
+          <button data-act="reschedule" data-id="${a.id}" data-loc="${a.location_id}" class="min-h-11 min-w-11 flex-1 rounded-xl border border-rule px-3 text-meta font-medium sm:flex-none">เลื่อน</button>
+        </div>`
+          : a.status === 'confirmed'
+            ? `<div class="mt-3 flex flex-wrap gap-2">
+          <button data-act="complete" data-id="${a.id}" class="min-h-11 min-w-11 flex-1 rounded-xl bg-teal-deep px-3 text-meta text-white sm:flex-none">เสร็จสิ้น</button>
+          <button data-act="no-show" data-id="${a.id}" class="min-h-11 min-w-11 flex-1 rounded-xl border border-rule px-3 text-meta sm:flex-none">ไม่มา</button>
+          <button data-act="reschedule" data-id="${a.id}" data-loc="${a.location_id}" class="min-h-11 min-w-11 flex-1 rounded-xl border border-rule px-3 text-meta sm:flex-none">เลื่อน</button>
+        </div>`
+            : '';
+
+      return `<article class="rounded-2xl border border-rule bg-white p-4 shadow-sm">
+        <div class="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <p class="font-head text-subhead font-semibold text-ink">${a.patient_name}</p>
+            <p class="font-mono text-meta text-teal-deep">${formatSlot(a.starts_at, a.ends_at)}</p>
+            <p class="text-meta text-text-2">${a.location_name_th}</p>
+          </div>
+          <span class="rounded-full bg-teal-wash px-3 py-1 text-micro font-medium text-ink">${STATUS_LABEL[a.status] ?? a.status}</span>
+        </div>
+        <p class="mt-3 text-prose text-text">${a.problem_description}</p>
+        <dl class="mt-3 grid gap-1 text-meta text-text-2">
+          <div><dt class="inline">โทร: </dt><dd class="inline font-mono">${a.patient_phone}</dd></div>
+          ${a.patient_email ? `<div><dt class="inline">อีเมล: </dt><dd class="inline">${a.patient_email}</dd></div>` : ''}
+        </dl>
+        ${link}
+        ${actions}
+      </article>`;
+    }
+
+    async function loadBoard() {
+      const loc = document.getElementById('filter-location').value;
+      const status = document.getElementById('filter-status').value;
+      const params = new URLSearchParams({ scope: 'upcoming' });
+      if (loc) params.set('locationId', loc);
+      if (status) params.set('status', status);
+      const res = await api(`/api/admin/appointments?${params}`);
+      const data = await res.json();
+      const board = document.getElementById('board');
+      const err = document.getElementById('board-error');
+      if (!data.ok) {
+        err.textContent = 'โหลดไม่สำเร็จ';
+        err.classList.remove('hidden');
+        return;
+      }
+      err.classList.add('hidden');
+      board.innerHTML = data.appointments.length
+        ? data.appointments.map(card).join('')
+        : '<p class="text-meta text-text-2">ไม่มีรายการ</p>';
+    }
+
+    document.getElementById('refresh-board')?.addEventListener('click', loadBoard);
+    document.getElementById('filter-location')?.addEventListener('change', loadBoard);
+    document.getElementById('filter-status')?.addEventListener('change', loadBoard);
+
+    document.getElementById('board')?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const id = btn.dataset.id;
+      const act = btn.dataset.act;
+      if (act === 'reschedule') {
+        rescheduleAppointmentId = id;
+        document.getElementById('reschedule-label').textContent = `นัด #${id}`;
+        const loc = btn.dataset.loc;
+        const slotsRes = await api(`/api/admin/slots/available?locationId=${loc}`);
+        const slotsData = await slotsRes.json();
+        const sel = document.getElementById('reschedule-slot');
+        sel.innerHTML = (slotsData.slots ?? [])
+          .map((s) => `<option value="${s.id}">${formatSlot(s.starts_at, s.ends_at)}</option>`)
+          .join('');
+        document.getElementById('reschedule-dialog').showModal();
+        return;
+      }
+      const path = `/api/admin/appointments/${id}/${act}`;
+      const res = await api(path, 'POST');
+      if (!res.ok) {
+        const data = await res.json();
+        document.getElementById('board-error').textContent = data?.error?.message ?? 'ดำเนินการไม่สำเร็จ';
+        document.getElementById('board-error').classList.remove('hidden');
+        return;
+      }
+      await loadBoard();
+    });
+
+    document.getElementById('reschedule-cancel')?.addEventListener('click', () => {
+      document.getElementById('reschedule-dialog').close();
+    });
+
+    document.getElementById('reschedule-dialog')?.addEventListener('close', async (e) => {
+      if (e.target.returnValue !== 'confirm' && e.submitter?.type !== 'submit') return;
+    });
+
+    document.querySelector('#reschedule-dialog form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const slotId = Number(document.getElementById('reschedule-slot').value);
+      const res = await api(`/api/admin/appointments/${rescheduleAppointmentId}/reschedule`, 'POST', {
+        newSlotId: slotId,
+        confirmNew: true,
+      });
+      document.getElementById('reschedule-dialog').close();
+      if (!res.ok) {
+        const data = await res.json();
+        document.getElementById('board-error').textContent = data?.error?.message ?? 'เลื่อนไม่สำเร็จ';
+        document.getElementById('board-error').classList.remove('hidden');
+        return;
+      }
+      await loadBoard();
+    });
+
+    loadBoard();
+  </script>
+</AdminShell>
