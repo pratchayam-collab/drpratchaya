@@ -34,6 +34,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Generate Cloudflare binding types
+        # worker-configuration.d.ts is generated, not committed, so a clean
+        # checkout has no `Env` bindings and typecheck reports every one of
+        # them as missing. `wrangler types` reads wrangler.jsonc only and
+        # needs no credentials.
+        run: npm run cf-typegen
+
       - name: Typecheck
         run: npm run typecheck
 
