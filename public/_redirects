@@ -1,0 +1,28 @@
+# Legacy Worker HTML filenames → v2 condition routes
+/index.html / 301
+/acl.html /conditions/acl/ 301
+/rotator-cuff.html /conditions/rotator-cuff/ 301
+/shoulder-dislocation.html /conditions/shoulder-dislocation/ 301
+/patellofemoral.html /conditions/patellofemoral/ 301
+
+# Legacy short slugs (old canonical shape) → /conditions/{slug}/
+/acl /conditions/acl/ 301
+/acl/ /conditions/acl/ 301
+/rotator-cuff /conditions/rotator-cuff/ 301
+/rotator-cuff/ /conditions/rotator-cuff/ 301
+/shoulder-dislocation /conditions/shoulder-dislocation/ 301
+/shoulder-dislocation/ /conditions/shoulder-dislocation/ 301
+/patellofemoral /conditions/patellofemoral/ 301
+/patellofemoral/ /conditions/patellofemoral/ 301
+/conditions /conditions/ 301
+/en/conditions /en/conditions/ 301
+/conditions/acl /conditions/acl/ 301
+/conditions/rotator-cuff /conditions/rotator-cuff/ 301
+/conditions/shoulder-dislocation /conditions/shoulder-dislocation/ 301
+/conditions/patellofemoral /conditions/patellofemoral/ 301
+/en/conditions/acl /en/conditions/acl/ 301
+/en/conditions/rotator-cuff /en/conditions/rotator-cuff/ 301
+/en/conditions/shoulder-dislocation /en/conditions/shoulder-dislocation/ 301
+/en/conditions/patellofemoral /en/conditions/patellofemoral/ 301
+
+# Canonical host: www.drpratchaya.com (apex→www handled in middleware)

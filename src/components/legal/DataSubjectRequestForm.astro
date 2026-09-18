@@ -1,0 +1,211 @@
+---
+import type { Locale } from '~/config/site.config';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+---
+
+<section class="dsr" data-locale={locale} data-turnstile={turnstileSiteKey}>
+  <form id="dsr-form" class="dsr-form">
+    <label>
+      <span>{locale === 'th' ? 'อีเมลที่ใช้ในการขอนัด' : 'Email used for booking'}</span>
+      <input name="email" type="email" required autocomplete="email" class="dsr-input" />
+    </label>
+    <fieldset class="dsr-actions">
+      <legend>{locale === 'th' ? 'ประเภทคำขอ' : 'Request type'}</legend>
+      <label class="dsr-radio">
+        <input type="radio" name="action" value="export" checked />
+        <span>{locale === 'th' ? 'ขอสำเนาข้อมูล' : 'Export my data'}</span>
+      </label>
+      <label class="dsr-radio">
+        <input type="radio" name="action" value="delete" />
+        <span>{locale === 'th' ? 'ขอลบข้อมูลติดต่อ' : 'Erase contact data'}</span>
+      </label>
+    </fieldset>
+    <div class="cf-turnstile" data-sitekey={turnstileSiteKey}></div>
+    <button type="submit" class="dsr-btn">
+      {locale === 'th' ? 'ส่งรหัสยืนยัน' : 'Send verification code'}
+    </button>
+  </form>
+
+  <form id="dsr-verify" class="dsr-form hidden" hidden>
+    <p class="dsr-hint" id="dsr-hint"></p>
+    <label>
+      <span>{locale === 'th' ? 'รหัส 6 หลัก' : '6-digit code'}</span>
+      <input name="code" pattern="[0-9]{6}" maxlength="6" inputmode="numeric" required class="dsr-input dsr-otp" />
+    </label>
+    <button type="submit" class="dsr-btn">
+      {locale === 'th' ? 'ยืนยันคำขอ' : 'Submit request'}
+    </button>
+  </form>
+
+  <pre id="dsr-result" class="dsr-result hidden" hidden></pre>
+  <p id="dsr-error" class="dsr-error" hidden></p>
+</section>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  const section = document.querySelector('.dsr');
+  if (!(section instanceof HTMLElement)) {
+    throw new Error('dsr section missing');
+  }
+  {
+    const dsrRoot = section;
+    const locale = dsrRoot.dataset.locale === 'en' ? 'en' : 'th';
+    const form = document.getElementById('dsr-form');
+    const verifyForm = document.getElementById('dsr-verify');
+    const hint = document.getElementById('dsr-hint');
+    const result = document.getElementById('dsr-result');
+    const errEl = document.getElementById('dsr-error');
+    let sessionId = '';
+
+    function showError(msg: string) {
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.hidden = false;
+      }
+    }
+
+    function turnstileToken(): string {
+      const el = dsrRoot.querySelector('input[name="cf-turnstile-response"]');
+      return el instanceof HTMLInputElement ? el.value : '';
+    }
+
+    type DsrApi = {
+      ok: boolean;
+      message?: string;
+      sessionId?: string;
+      devCode?: string;
+      error?: { message?: string };
+    };
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl && (errEl.hidden = true);
+      const fd = new FormData(form as HTMLFormElement);
+      const res = await fetch('/api/privacy/dsr/request', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          email: fd.get('email'),
+          action: fd.get('action'),
+          turnstileToken: turnstileToken(),
+          locale,
+        }),
+      });
+      const data = (await res.json()) as DsrApi;
+      if (!data.ok) {
+        showError(data.error?.message ?? 'Error');
+        return;
+      }
+      sessionId = data.sessionId ?? '';
+      if (hint) hint.textContent = data.message ?? '';
+      form.classList.add('hidden');
+      form.hidden = true;
+      verifyForm?.classList.remove('hidden');
+      if (verifyForm) verifyForm.hidden = false;
+      if (import.meta.env.DEV && data.devCode) {
+        console.log('DSR dev OTP', data.devCode);
+      }
+    });
+
+    verifyForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl && (errEl.hidden = true);
+      const fd = new FormData(verifyForm as HTMLFormElement);
+      const res = await fetch('/api/privacy/dsr/verify', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          sessionId,
+          code: fd.get('code'),
+          locale,
+        }),
+      });
+      const data = (await res.json()) as DsrApi & Record<string, unknown>;
+      if (!data.ok) {
+        showError(data.error?.message ?? 'Error');
+        return;
+      }
+      verifyForm.classList.add('hidden');
+      verifyForm.hidden = true;
+      if (result) {
+        result.textContent = JSON.stringify(data, null, 2);
+        result.classList.remove('hidden');
+        result.hidden = false;
+      }
+    });
+  }
+</script>
+
+<style>
+  .dsr-form {
+    display: grid;
+    gap: 1rem;
+    max-width: 28rem;
+  }
+
+  .dsr-form.hidden {
+    display: none;
+  }
+
+  .dsr-input {
+    display: block;
+    width: 100%;
+    min-height: 2.75rem;
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    font-size: var(--text-prose);
+  }
+
+  .dsr-actions {
+    border: 0;
+    padding: 0;
+  }
+
+  .dsr-radio {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    margin-top: 0.35rem;
+  }
+
+  .dsr-btn {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 0.75rem;
+    background: var(--teal-deep);
+    color: var(--surface);
+    font-weight: 600;
+    border: 0;
+    cursor: pointer;
+  }
+
+  .dsr-hint {
+    font-size: var(--text-meta);
+    color: var(--text-2);
+    line-height: 1.75;
+  }
+
+  .dsr-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: var(--text-micro);
+    background: var(--surface-2);
+    border-radius: 0.75rem;
+  }
+
+  .dsr-error {
+    color: var(--danger);
+    margin-top: 0.75rem;
+  }
+</style>
