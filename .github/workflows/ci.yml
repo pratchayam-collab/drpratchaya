@@ -16,6 +16,11 @@ permissions:
 
 env:
   CLOUDFLARE_ACCOUNT_ID: "5093b764ea33977e138b71627193ea52"
+  # Declared for the whole workflow, not per step. `astro build` needs it too:
+  # the Cloudflare Vite plugin opens a remote proxy session during prerender
+  # because the AI and Vectorize bindings have no local mode, and that call
+  # fails in a non-interactive environment without a token.
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
 
 jobs:
   validate:
@@ -51,8 +56,6 @@ jobs:
         run: npm run build
 
       - name: Validate Worker config (dry-run)
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx wrangler deploy --dry-run
 
       - name: Start static preview server
