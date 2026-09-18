@@ -1,0 +1,134 @@
+---
+/**
+ * Contact channels. Practice locations and slots live in `#appointment`.
+ */
+import Placeholder from '~/components/Placeholder.astro';
+import Section from '~/components/Section.astro';
+import { contact, testimonials, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+---
+
+<Section
+  id="contact"
+  number="07"
+  kicker={t.contactKicker}
+  heading={t.contactHeading}
+  intro={t.contactIntro}
+>
+  <p class="appointment-pointer measure">
+    <a href="#appointment">{t.appointmentHeading}</a>
+  </p>
+
+  <dl class="channels">
+    <div class="channel">
+      <dt class="channel-label">{t.emailLabel}</dt>
+      <dd class="channel-value">
+        <a href={`mailto:${contact.email}`} class="channel-email">{contact.email}</a>
+      </dd>
+    </div>
+
+    <div class="channel">
+      <dt class="channel-label">{t.phoneLabel}</dt>
+      <dd class="channel-value">
+        <Placeholder value={contact.phone} locale={locale} />
+      </dd>
+    </div>
+
+    <div class="channel">
+      <dt class="channel-label">{t.lineLabel}</dt>
+      <dd class="channel-value">
+        <Placeholder value={contact.lineOfficialAccount} locale={locale} />
+      </dd>
+    </div>
+  </dl>
+
+  <section class="testimonials" aria-labelledby="testimonials-heading">
+    <h3 id="testimonials-heading" class="testimonials-heading">{t.testimonialsHeading}</h3>
+    {
+      testimonials.length === 0 ? (
+        <p class="testimonials-empty measure">{t.testimonialsEmpty}</p>
+      ) : (
+        <ul>
+          {testimonials.map((testimonial) => (
+            <li>
+              <blockquote>{testimonial.quote[locale]}</blockquote>
+              <p>{testimonial.attribution[locale]}</p>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+  </section>
+</Section>
+
+<style>
+  .appointment-pointer {
+    margin-top: 1.5rem;
+    font-size: var(--text-meta);
+    line-height: 1.75;
+  }
+
+  .channels {
+    margin: 2rem 0 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .channel {
+    display: grid;
+    gap: 0.25rem;
+    padding-block: 1.125rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .channel-label {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .channel-value {
+    margin: 0;
+    font-size: var(--text-meta);
+    color: var(--ink);
+  }
+
+  .channel-email {
+    font-family: var(--font-mono);
+  }
+
+  @media (min-width: 640px) {
+    .channel {
+      grid-template-columns: 13rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: baseline;
+    }
+  }
+
+  .testimonials {
+    margin-top: 3rem;
+  }
+
+  .testimonials-heading {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .testimonials-empty {
+    margin-top: 1.25rem;
+    padding: 1.25rem;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    font-size: var(--text-meta);
+    line-height: 1.8;
+    color: var(--text-2);
+  }
+</style>

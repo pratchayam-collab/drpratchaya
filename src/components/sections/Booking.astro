@@ -1,0 +1,230 @@
+---
+/**
+ * Appointment locations — static placeholder data shaped like future D1 rows.
+ * Two modes: bookable on-site (sample slots) vs book only through the hospital.
+ */
+import Section from '~/components/Section.astro';
+import { practiceLocations, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+
+const formatPhoneHref = (phone: string) => phone.replace(/\s/g, '');
+---
+
+<Section
+  id="appointment"
+  number="01"
+  kicker={t.appointmentKicker}
+  heading={t.appointmentHeading}
+  intro={t.appointmentIntro}
+>
+  <ul class="location-list">
+    {
+      practiceLocations.map((location) => (
+        <li class="location-card">
+          <header class="location-head">
+            <h3 class="location-name">{location.name[locale]}</h3>
+            <p class="location-address">{location.address[locale]}</p>
+            {location.mapUrl.startsWith('http') && (
+              <a href={location.mapUrl} class="location-map" rel="noopener noreferrer">
+                {t.viewMap}
+              </a>
+            )}
+          </header>
+
+          {location.booking === 'bookable-here' ? (
+            <div class="location-body">
+              <p class="location-hours">
+                <span class="location-label">{t.hoursLabel}</span>
+                {location.hoursSummary[locale]}
+              </p>
+              <p class="location-mode">{t.bookableHereNote}</p>
+              <ul class="slot-list">
+                {location.availableSlots.map((slot) => (
+                  <li>
+                    <a href={slot.bookHref} class="slot-link">
+                      <span class="slot-time">{slot.startsAtLabel[locale]}</span>
+                      <span class="slot-action">{t.chooseSlot}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+              <p class="location-footnote">{t.bookingPendingNote}</p>
+            </div>
+          ) : (
+            <div class="location-body">
+              <p class="location-mode">{t.bookViaHospitalNote}</p>
+              <dl class="external-channels">
+                <div>
+                  <dt>{location.externalChannelLabel[locale]}</dt>
+                  <dd>
+                    <a href={`tel:${formatPhoneHref(location.externalPhone)}`}>
+                      {location.externalPhone}
+                    </a>
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t.lineLabel}</dt>
+                  <dd>{location.externalLineId}</dd>
+                </div>
+                <div>
+                  <dt>{t.externalBookingLabel}</dt>
+                  <dd>
+                    <a href={location.externalBookingUrl} rel="noopener noreferrer">
+                      {t.openHospitalBooking}
+                    </a>
+                  </dd>
+                </div>
+              </dl>
+              <p class="location-footnote">{t.noSlotsExternalNote}</p>
+            </div>
+          )}
+        </li>
+      ))
+    }
+  </ul>
+</Section>
+
+<style>
+  .location-list {
+    display: grid;
+    gap: 1.25rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .location-list {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.5rem;
+    }
+  }
+
+  .location-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--teal-wash);
+    overflow: hidden;
+  }
+
+  .location-head {
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .location-name {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .location-address {
+    margin-top: 0.5rem;
+    font-size: var(--text-meta);
+    line-height: 1.7;
+    color: var(--text-2);
+  }
+
+  .location-map {
+    display: inline-block;
+    margin-top: 0.625rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    min-height: 2.75rem;
+    line-height: 2.75rem;
+  }
+
+  .location-body {
+    padding: 1.25rem;
+  }
+
+  .location-label {
+    display: block;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 0.25rem;
+  }
+
+  .location-hours {
+    font-size: var(--text-meta);
+    line-height: 1.7;
+    color: var(--ink);
+  }
+
+  .location-mode {
+    margin-top: 1rem;
+    font-size: var(--text-meta);
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  .slot-list {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .slot-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-meta);
+    font-weight: 500;
+  }
+
+  .slot-link:hover {
+    border-color: var(--teal-deep);
+    text-decoration: none;
+  }
+
+  .slot-time {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--teal-deep);
+  }
+
+  .slot-action {
+    font-weight: 600;
+    color: var(--teal-deep);
+  }
+
+  .external-channels {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.875rem;
+  }
+
+  .external-channels dt {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .external-channels dd {
+    margin: 0.25rem 0 0;
+    font-size: var(--text-meta);
+    color: var(--ink);
+  }
+
+  .location-footnote {
+    margin-top: 1rem;
+    font-size: var(--text-micro);
+    line-height: 1.6;
+    color: var(--text-2);
+  }
+</style>

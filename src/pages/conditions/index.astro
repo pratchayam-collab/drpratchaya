@@ -1,0 +1,127 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { conditions, type Locale } from '~/config/site.config';
+import { getCollection } from 'astro:content';
+import MedicalSearch from '~/components/search/MedicalSearch.astro';
+import { localePath, ui } from '~/i18n/ui';
+import { conditionSlug } from '~/utils/condition-seo';
+
+const locale = 'th' satisfies Locale;
+const t = ui[locale];
+
+const entries = await getCollection('conditions');
+const bySlug = new Map(entries.map((entry) => [conditionSlug(entry), entry]));
+---
+
+<BaseLayout locale={locale} title={t.conditionsIndexTitle} description={t.conditionsIndexDescription}>
+  <div class="page index-page">
+    <header class="index-header">
+      <p class="kicker">{t.conditionsKicker}</p>
+      <h1 class="index-title">{t.conditionsIndexHeading}</h1>
+      <p class="index-intro measure">{t.conditionsIndexIntro}</p>
+    </header>
+
+    <MedicalSearch enableAsk={false} class="index-search" />
+
+    <ul class="index-list">
+      {
+        conditions.map((item) => {
+          const entry = bySlug.get(item.slug);
+          return (
+            <li>
+              <a href={localePath(locale, `conditions/${item.slug}/`)} class="index-link">
+                <h2 class="index-item-title">{item.title[locale]}</h2>
+                <p class="index-item-summary">{item.summary[locale]}</p>
+                <span class="index-more">
+                  {t.readMore}
+                  <span aria-hidden="true">&nbsp;&rarr;</span>
+                </span>
+                {entry && <span class="index-meta">{entry.data.tag}</span>}
+              </a>
+            </li>
+          );
+        })
+      }
+    </ul>
+  </div>
+</BaseLayout>
+
+<style>
+  .index-page {
+    padding-block: 2.5rem 3.5rem;
+  }
+
+  .index-header {
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .index-title {
+    margin-top: 0.75rem;
+    font-size: var(--text-title);
+    line-height: 1.3;
+  }
+
+  .index-intro {
+    margin-top: 1rem;
+    font-size: var(--text-lead);
+    line-height: 1.75;
+    color: var(--text-2);
+  }
+
+  .index-search {
+    margin-block: 2rem;
+  }
+
+  .index-list {
+    margin-top: 0;
+    border-top: 0;
+  }
+
+  .index-list li {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .index-link {
+    display: block;
+    padding-block: 1.5rem;
+    color: inherit;
+  }
+
+  .index-link:hover {
+    text-decoration: none;
+    background: var(--teal-wash);
+  }
+
+  .index-item-title {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .index-link:hover .index-item-title {
+    color: var(--teal-deep);
+  }
+
+  .index-item-summary {
+    margin-top: 0.5rem;
+    max-width: var(--container-measure);
+    font-size: var(--text-meta);
+    line-height: 1.75;
+    color: var(--text-2);
+  }
+
+  .index-more {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--teal-deep);
+  }
+
+  .index-meta {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+</style>

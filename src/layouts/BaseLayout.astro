@@ -1,0 +1,122 @@
+---
+/**
+ * Document shell: head metadata, font preloading, header, footer, mobile dock.
+ *
+ * Each locale is a real route tree (`/` for Thai, `/en/` for English) with its
+ * own `<html lang>` and reciprocal `hreflang` links. Both languages are never
+ * in the same DOM — the previous site shipped both and toggled with CSS, which
+ * reads as duplicate content.
+ */
+import '~/styles/global.css';
+import SiteHeader from '~/components/SiteHeader.astro';
+import SiteFooter from '~/components/SiteFooter.astro';
+import ContactDock from '~/components/ContactDock.astro';
+import { type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+import { buildHomeStructuredDataGraph } from '~/utils/home-structured-data';
+import { canonicalUrl, homeOgImagePath } from '~/utils/site-url';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+}
+
+const { locale, title, description } = Astro.props;
+const t = ui[locale];
+
+const canonical = canonicalUrl(locale === 'th' ? '/' : '/en/');
+const canonicalPath = locale === 'th' ? '/' : '/en/';
+const thHref = canonicalUrl('/');
+const enHref = canonicalUrl('/en/');
+const ogImage = canonicalUrl(homeOgImagePath);
+
+/**
+ * Only the two faces that render above the fold are preloaded. On the Thai
+ * route that is the Thai range of the heading and body faces; on the English
+ * route it is their Latin range. Everything else loads on demand through
+ * `unicode-range`, with `font-display: swap`.
+ */
+const preloadFonts =
+  locale === 'th'
+    ? ['/fonts/noto-serif-thai-var-thai.woff2', '/fonts/ibm-plex-sans-thai-400-thai.woff2']
+    : ['/fonts/noto-serif-thai-var-latin.woff2', '/fonts/ibm-plex-sans-thai-400-latin.woff2'];
+
+const structuredData = buildHomeStructuredDataGraph(locale);
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+
+    <!-- Absolute, not path-only: this Worker also answers on its workers.dev
+         hostname, where a relative canonical would name that host as the
+         original and hand it the ranking. -->
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="th" href={thHref} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="x-default" href={thHref} />
+
+    {
+      preloadFonts.map((href) => (
+        <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      ))
+    }
+
+    <meta property="og:type" content="profile" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content={locale === 'th' ? 'th_TH' : 'en_US'} />
+    {
+      locale === 'en' && (
+        <meta property="og:locale:alternate" content="th_TH" />
+      )
+    }
+    {
+      locale === 'th' && (
+        <meta property="og:locale:alternate" content="en_US" />
+      )
+    }
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+
+    <meta name="theme-color" content="#faf8f4" />
+
+    <script type="application/ld+json" set:html={JSON.stringify(structuredData)} is:inline />
+  </head>
+
+  <body>
+    <a href="#main" class="skip-link">{t.skipToContent}</a>
+
+    <SiteHeader locale={locale} />
+
+    <main id="main" class="main">
+      <slot />
+    </main>
+
+    <SiteFooter locale={locale} />
+    <ContactDock locale={locale} />
+  </body>
+</html>
+
+<style>
+  /* Reserve room for the fixed dock so it never overlaps the last paragraph.
+     The dock is hidden from 1024px up, and the reservation lifts with it. */
+  .main {
+    padding-bottom: var(--dock-height);
+  }
+
+  @media (min-width: 1024px) {
+    .main {
+      padding-bottom: 0;
+    }
+  }
+</style>

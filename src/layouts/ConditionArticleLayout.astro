@@ -1,0 +1,122 @@
+---
+/**
+ * Shell for condition articles: SEO from frontmatter, JSON-LD, single-column mobile layout.
+ */
+import SiteHeader from '~/components/SiteHeader.astro';
+import SiteFooter from '~/components/SiteFooter.astro';
+import ContactDock from '~/components/ContactDock.astro';
+import {
+  buildBreadcrumbJsonLd,
+  buildFaqPageJsonLd,
+  buildMedicalWebPageJsonLd,
+  conditionSlug,
+} from '~/utils/condition-seo';
+import { type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+import type { CollectionEntry } from 'astro:content';
+import '~/styles/global.css';
+import {
+  canonicalUrl,
+  conditionCanonicalUrl,
+  conditionMarkdownPath,
+  conditionOgImagePath,
+  conditionPagePath,
+} from '~/utils/site-url';
+
+interface Props {
+  locale: Locale;
+  entry: CollectionEntry<'conditions'>;
+  showEnglishNotice?: boolean;
+}
+
+const { locale, entry, showEnglishNotice = false } = Astro.props;
+const { data } = entry;
+const t = ui[locale];
+const slug = conditionSlug(entry);
+const canonicalHref = conditionCanonicalUrl(slug);
+const canonicalPath = conditionPagePath(slug, 'th');
+const thHref = canonicalUrl(conditionPagePath(slug, 'th'));
+const enHref = canonicalUrl(conditionPagePath(slug, 'en'));
+const markdownHref = canonicalUrl(conditionMarkdownPath(slug));
+const ogImage = canonicalUrl(conditionOgImagePath(slug));
+
+const preloadFonts = [
+  '/fonts/noto-serif-thai-var-thai.woff2',
+  '/fonts/ibm-plex-sans-thai-400-thai.woff2',
+];
+
+const jsonLd = [
+  buildMedicalWebPageJsonLd(entry, locale),
+  buildBreadcrumbJsonLd(entry),
+  buildFaqPageJsonLd(entry),
+];
+---
+
+<!doctype html>
+<html lang={showEnglishNotice ? 'en' : 'th'}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{data.seo.title}</title>
+    <meta name="description" content={data.seo.description} />
+    <meta name="keywords" content={data.seo.keywords} />
+
+    <!-- Absolute for the same reason as BaseLayout: the workers.dev hostname
+         would otherwise claim the canonical when crawled there. -->
+    <link rel="canonical" href={canonicalHref} />
+    <link rel="alternate" hreflang="th" href={thHref} />
+    <link rel="alternate" hreflang="en" href={enHref} />
+    <link rel="alternate" hreflang="x-default" href={thHref} />
+    <link rel="alternate" type="text/markdown" href={markdownHref} title="Markdown mirror" />
+
+    {
+      preloadFonts.map((href) => (
+        <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />
+      ))
+    }
+
+    <meta property="og:type" content="article" />
+    <meta property="og:title" content={data.og.title} />
+    <meta property="og:description" content={data.og.description} />
+    <meta property="og:url" content={canonicalHref} />
+    <meta property="og:locale" content="th_TH" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="theme-color" content="#faf8f4" />
+
+    {
+      jsonLd.map((block) => (
+        <script type="application/ld+json" set:html={JSON.stringify(block)} is:inline />
+      ))
+    }
+  </head>
+
+  <body>
+    <a href="#main" class="skip-link">{t.skipToContent}</a>
+
+    <SiteHeader locale={locale} />
+
+    <main id="main" class="main">
+      <slot />
+    </main>
+
+    <SiteFooter locale={locale} />
+    <ContactDock locale={locale} />
+  </body>
+</html>
+
+<style>
+  .main {
+    padding-bottom: var(--dock-height);
+  }
+
+  @media (min-width: 1024px) {
+    .main {
+      padding-bottom: 0;
+    }
+  }
+</style>

@@ -1,0 +1,388 @@
+---
+/**
+ * Condition article body: hero, optional short answer, prose, FAQ, sidebar TOC on desktop.
+ */
+import { doctor, type Locale } from '~/config/site.config';
+import { localePath, ui } from '~/i18n/ui';
+import type { MarkdownHeading } from 'astro';
+import type { CollectionEntry } from 'astro:content';
+import { conditionSlug } from '~/utils/condition-seo';
+
+interface Props {
+  entry: CollectionEntry<'conditions'>;
+  locale: Locale;
+  headings: MarkdownHeading[];
+  showEnglishNotice?: boolean;
+}
+
+const { entry, locale, headings, showEnglishNotice = false } = Astro.props;
+const { data } = entry;
+const t = ui[locale];
+
+const shortAnswer = data.shortAnswer.trim();
+const showShortAnswer = shortAnswer.length > 0;
+const showDevGap = import.meta.env.DEV && !showShortAnswer;
+
+const tocHeadings = headings.filter((heading) => heading.depth >= 2 && heading.depth <= 3);
+const conditionsIndex = localePath(locale, 'conditions/');
+---
+
+<article class="condition-article">
+  {
+    showEnglishNotice && (
+      <div class="page">
+        <p class="lang-notice" role="note">
+          {t.englishArticleNotice}
+        </p>
+      </div>
+    )
+  }
+
+  <header class="article-hero">
+    <div class="page">
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        <ol>
+          <li>
+            <a href={localePath(locale)}>{locale === 'th' ? 'หน้าแรก' : 'Home'}</a>
+          </li>
+          <li>
+            <a href={conditionsIndex}>{t.conditionsIndexHeading}</a>
+          </li>
+          <li aria-current="page">{data.conditionNameTh}</li>
+        </ol>
+      </nav>
+
+      <p class="article-tag">{data.tag}</p>
+      <h1 class="article-title" lang="th">{data.title}</h1>
+      <p class="article-byline">
+        {doctor.name[locale]} · {data.publishedYear}
+      </p>
+    </div>
+  </header>
+
+  <div class="page article-layout">
+    <div class="article-main">
+      {
+        showShortAnswer && (
+          <section class="short-answer" aria-labelledby="short-answer-heading">
+            <h2 id="short-answer-heading" class="short-answer-label">
+              {t.shortAnswerLabel}
+            </h2>
+            <p class="short-answer-text" lang="th">
+              {shortAnswer}
+            </p>
+          </section>
+        )
+      }
+
+      {
+        showDevGap && (
+          <p class="dev-short-answer-gap" data-needs="shortAnswer TODO(owner)">
+            {t.devMissingShortAnswer}
+          </p>
+        )
+      }
+
+      <div class="article-body prose" lang="th">
+        <slot />
+      </div>
+
+      {
+        data.faq.length > 0 && (
+          <section class="article-faq" aria-labelledby="faq-heading">
+            <h2 id="faq-heading">{t.faqHeading}</h2>
+            <dl class="faq-list">
+              {data.faq.map((item) => (
+                <div class="faq-item">
+                  <dt>{item.question}</dt>
+                  <dd>{item.answer}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )
+      }
+
+      <p class="article-back">
+        <a href={conditionsIndex}>{t.backToConditions}</a>
+      </p>
+    </div>
+
+    {
+      tocHeadings.length > 0 && (
+        <aside class="article-sidebar" aria-labelledby="toc-heading">
+          <div class="sidebar-inner">
+            <h2 id="toc-heading" class="toc-heading">
+              {t.onThisPage}
+            </h2>
+            <ol class="toc-list">
+              {tocHeadings.map((heading) => (
+                <li class={`depth-${heading.depth}`}>
+                  <a href={`#${heading.slug}`}>{heading.text}</a>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </aside>
+      )
+    }
+  </div>
+</article>
+
+<style>
+  .lang-notice {
+    margin-top: 1rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--teal-wash);
+    font-size: var(--text-meta);
+    line-height: 1.75;
+    color: var(--ink);
+  }
+
+  .article-hero {
+    padding-block: 2rem 2.5rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .breadcrumb ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+
+  .breadcrumb a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding-inline: 0.125rem;
+  }
+
+  .breadcrumb li:not(:last-child)::after {
+    content: '›';
+    margin-inline-start: 0.5rem;
+    color: var(--text-2);
+  }
+
+  .article-tag {
+    margin-top: 1.25rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--teal-deep);
+  }
+
+  .article-title {
+    margin-top: 0.75rem;
+    font-size: var(--text-title);
+    line-height: 1.3;
+    max-width: var(--container-measure);
+  }
+
+  .article-byline {
+    margin-top: 1rem;
+    font-size: var(--text-meta);
+    color: var(--text-2);
+  }
+
+  .article-layout {
+    display: grid;
+    gap: 2.5rem;
+    padding-block: 2.5rem 3.5rem;
+  }
+
+  @media (min-width: 960px) {
+    .article-layout {
+      grid-template-columns: minmax(0, 1fr) 14rem;
+      gap: 3rem;
+      align-items: start;
+    }
+  }
+
+  .short-answer {
+    margin-bottom: 2rem;
+    padding: 1.25rem 1.25rem 1.35rem;
+    border-inline-start: 2px solid var(--teal-deep);
+    background: var(--teal-wash);
+    border-radius: 0 12px 12px 0;
+  }
+
+  .short-answer-label {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .short-answer-text {
+    margin-top: 0.625rem;
+    font-size: var(--text-lead);
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  .dev-short-answer-gap {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem 1rem;
+    border: 2px dashed var(--gold);
+    border-radius: 8px;
+    font-size: var(--text-meta);
+    font-weight: 600;
+    color: var(--ink);
+    background: color-mix(in srgb, var(--gold) 12%, var(--surface));
+  }
+
+  .article-faq {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .article-faq h2 {
+    font-size: var(--text-heading);
+    margin-bottom: 1.25rem;
+  }
+
+  .faq-list {
+    display: grid;
+    gap: 1.25rem;
+  }
+
+  .faq-item {
+    display: contents;
+  }
+
+  .faq-list dt {
+    font-weight: 600;
+    font-size: var(--text-subhead);
+    line-height: 1.45;
+    color: var(--ink);
+  }
+
+  .faq-list dd {
+    margin: 0.5rem 0 0;
+    font-size: var(--text-prose);
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  .article-back {
+    margin-top: 2.5rem;
+    font-size: var(--text-meta);
+    font-weight: 600;
+  }
+
+  .article-sidebar {
+    order: -1;
+  }
+
+  @media (min-width: 960px) {
+    .article-sidebar {
+      order: 0;
+    }
+  }
+
+  .sidebar-inner {
+    padding: 1rem 1.125rem;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+  }
+
+  @media (min-width: 960px) {
+    .sidebar-inner {
+      position: sticky;
+      top: 6rem;
+    }
+  }
+
+  .toc-heading {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--text-2);
+  }
+
+  .toc-list {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .toc-list a {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    font-size: var(--text-meta);
+    line-height: 1.5;
+    color: var(--text);
+    padding-block: 0.25rem;
+  }
+
+  .toc-list .depth-3 {
+    padding-inline-start: 0.75rem;
+  }
+
+  .article-body :global(h2) {
+    margin-top: 2.5rem;
+    font-size: var(--text-heading);
+    line-height: 1.32;
+    scroll-margin-top: 6rem;
+  }
+
+  .article-body :global(h2:first-child) {
+    margin-top: 0;
+  }
+
+  .article-body :global(h3) {
+    margin-top: 1.75rem;
+    font-size: var(--text-subhead);
+    line-height: 1.45;
+    scroll-margin-top: 6rem;
+  }
+
+  .article-body :global(p),
+  .article-body :global(li) {
+    margin-top: 1rem;
+    font-size: var(--text-prose);
+    line-height: 1.75;
+    color: var(--text);
+  }
+
+  .article-body :global(ul),
+  .article-body :global(ol) {
+    margin-top: 1rem;
+    padding-inline-start: 1.25rem;
+  }
+
+  .article-body :global(ul) {
+    list-style: disc;
+  }
+
+  .article-body :global(ol) {
+    list-style: decimal;
+  }
+
+  .article-body :global(blockquote) {
+    margin-top: 1.25rem;
+    padding: 1rem 1.125rem;
+    border-inline-start: 2px solid var(--teal-deep);
+    background: var(--teal-wash);
+    border-radius: 0 8px 8px 0;
+  }
+
+  .article-body :global(blockquote p) {
+    margin-top: 0;
+  }
+
+  .article-body :global(strong) {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .article-body :global(a) {
+    overflow-wrap: anywhere;
+  }
+</style>

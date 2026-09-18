@@ -1,0 +1,24 @@
+---
+import ConditionArticleView from '~/components/ConditionArticleView.astro';
+import ConditionArticleLayout from '~/layouts/ConditionArticleLayout.astro';
+import { getCollection, render } from 'astro:content';
+import { conditionSlug } from '~/utils/condition-seo';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('conditions');
+  return entries.map((entry) => ({
+    params: { slug: conditionSlug(entry) },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+const locale = 'th' as const;
+---
+
+<ConditionArticleLayout locale={locale} entry={entry}>
+  <ConditionArticleView entry={entry} locale={locale} headings={headings}>
+    <Content />
+  </ConditionArticleView>
+</ConditionArticleLayout>

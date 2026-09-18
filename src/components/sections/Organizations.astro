@@ -1,0 +1,104 @@
+---
+/**
+ * Professional memberships, set as a rule-separated table: abbreviation in
+ * mono, full name, year of joining in mono.
+ */
+import Section from '~/components/Section.astro';
+import { organizations, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+---
+
+<Section
+  id="organizations"
+  number="06"
+  kicker={t.organizationsKicker}
+  heading={t.organizationsHeading}
+>
+  <ul class="list">
+    {
+      organizations.map((org) => (
+        <li class="row">
+          <span class="abbr">{org.abbr}</span>
+          <div class="body">
+            <p class="name">{org.name[locale]}</p>
+            {org.role && <p class="role">{org.role[locale]}</p>}
+          </div>
+          <span class="since">
+            <span class="since-label">{t.memberSince}</span>
+            <span class="since-year">{org.since}</span>
+          </span>
+        </li>
+      ))
+    }
+  </ul>
+</Section>
+
+<style>
+  .list {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
+    gap: 0.5rem 1rem;
+    padding-block: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .abbr {
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    font-weight: 500;
+    color: var(--teal-deep);
+    letter-spacing: 0.04em;
+  }
+
+  .name {
+    font-weight: 600;
+    font-size: var(--text-meta);
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  .role {
+    margin-top: 0.25rem;
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+
+  .since {
+    grid-column: 2;
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+
+  .since-year {
+    font-family: var(--font-mono);
+    color: var(--teal-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (min-width: 720px) {
+    .row {
+      grid-template-columns: 5.5rem minmax(0, 1fr) 11rem;
+      align-items: baseline;
+    }
+
+    .since {
+      grid-column: 3;
+      justify-content: flex-end;
+    }
+  }
+</style>
