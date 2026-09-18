@@ -1,9 +1,41 @@
+# macOS
 .DS_Store
-doc-gitignored/
-assets/
 
-# ของ On Board ที่ผูกกับเครื่องแต่ละคน
+# Node / build
+node_modules/
+dist/
+.astro/
+.output/
+*.tsbuildinfo
+
+# Cloudflare
+.wrangler/
+.dev.vars
+.dev.vars.*
+worker-configuration.d.ts
+
+# Secrets and env
+.env
+.env.*
+!.env.example
+
+# Reference material, not part of the site.
+# Root-anchored: a bare `assets/` would also swallow src/assets/.
+doc-gitignored/
+/assets/
+
+# On Board, per-machine state
 .onboard/
 .agent-mem-hooks/
 .claude/settings.local.json
 .cursor/*.local.json
+
+# Agent scratch and planning state
+.cursor/plans/
+.superpowers/
+.superdesign/
+
+# Verification artifacts
+.upgrade-screenshots/
+docs/mobile-audit-screenshots/
+.playwright-cli/

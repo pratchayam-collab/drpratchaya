@@ -1,50 +1,73 @@
-# drpratchaya — เว็บให้ความรู้ออร์โธปิดิกส์
+# drpratchaya.com — Claude / agent context
 
-เว็บ static HTML ล้วน ไม่มี build step ไม่มี framework แก้ไฟล์แล้วคือผลลัพธ์เลย
+Public repo for the website of นพ.ปรัชญา มานพ (Dr. Pratchaya Manop), ศัลยแพทย์ออร์โธปิดิกส์ เวชศาสตร์การกีฬา. Thai primary, English secondary.
 
-## โครง
+Reference design: `docs/superpowers/specs/2026-09-18-drpratchaya-v2-design.md`.
+
+## Two repos, and what belongs where
 
 ```
-drpratchaya/        ← รีโปนี้ · PUBLIC · pratchayam-collab/drpratchaya
-drpratchaya-mem/    ← รีโปข้าง ๆ · PRIVATE · กระดาน On Board อยู่ที่นั่น ไม่ใช่ที่นี่
+drpratchaya/        ← this repo · PUBLIC · pratchayam-collab/drpratchaya
+drpratchaya-mem/    ← sibling repo · PRIVATE · the On Board work queue lives there
 ```
 
-หน้าเว็บที่มีตอนนี้ — `index.html` `acl.html` `patellofemoral.html`
-`rotator-cuff.html` `shoulder-dislocation.html`
+Anything internal — notes, tickets, working state — goes in `drpratchaya-mem`, never here.
 
-## กติกาที่ห้ามพลาด
+## The work board
 
-1. **`main` คือเว็บจริง** Cloudflare Pages ต่อกับรีโปนี้ไว้ push เข้า `main` แล้วขึ้น production ทันที
-   ห้าม commit บน `main` ตรง ๆ แตก branch แล้วเปิด PR ให้เจ้าของเว็บกด merge
+The board is at `../drpratchaya-mem`, reached through the MCP server `agent-memory`. Run `memory_onboard` before starting, and `memory_claim_ticket` before touching anything. A ticket whose `claimed_by` is not you is not yours. This is the only thing preventing two people from colliding.
 
-   ```sh
-   git pull --rebase
-   git switch -c work/<ชื่อคุณ>/<หัวข้อสั้น>
-   ```
+`.agent-mem/` is tracked and pushed to the private repo, so **pull before `memory_onboard`** and push straight after `memory_handoff`. The longer local state sits unpushed, the likelier a collision.
 
-2. **pull ก่อนเริ่มเสมอ** สองคนทำงานร่วมกันอยู่ ไม่ pull ก่อนจะทับงานอีกฝ่าย
+**Never run On Board's `setup-project.sh` against either repo.** It appends `.agent-mem/`, `CLAUDE.md`, `AGENTS.md` and `.cursorrules` to `.gitignore` — all files we deliberately track — and the board drops out of git with no warning. If it has already run, remove the lines it added.
 
-3. **ห้าม `git commit -a`** เติมทีละไฟล์ที่ตั้งใจ ก่อน push ให้ `git status` อ่านให้ครบ
-   เจอไฟล์ที่ไม่ใช่ของคุณอย่ารวมเข้าไป
+## Deployment (verified facts — do not contradict)
 
-4. **ของในรีโปนี้ออกสู่สาธารณะหมด** Cloudflare เสิร์ฟไฟล์จากรากรีโป
-   ห้ามใส่ข้อมูลคนไข้ ข้อมูลส่วนตัว คีย์ หรือ token ลงที่นี่เด็ดขาด
-   บันทึกภายในให้ไปอยู่ `drpratchaya-mem`
+- **There is no Cloudflare Pages project.** Pushing to `main` does not deploy via Pages.
+- Production is the **Worker `drpratchaya`** (id `b09044d0e1de4226b14f9fabef685816`), created 2026-07-07. It was historically deployed by manual upload; the pipeline is now `wrangler deploy` from GitHub Actions on merge to `main`.
+- **Live at `https://www.drpratchaya.com/`**, attached as a Worker custom domain.
+- The **workers.dev hostname is switched off** (`workers_dev: false`) so it cannot serve a duplicate copy that competes with www in search.
+- The **apex `drpratchaya.com` does not resolve yet.** The local API token has no zone write scope, so the apex-to-www 301 must be created as a dashboard Redirect Rule. Do not solve this with `run_worker_first: true` — that routes every request through the Worker and throws away the static-first architecture for one redirect.
 
-5. **เนื้อหาการแพทย์ต้องให้เจ้าของเว็บตรวจก่อน** agent แก้ถ้อยคำหรือโครงหน้าได้
-   แต่ห้ามแต่งข้อเท็จจริงทางการแพทย์เพิ่มเอง ถ้าไม่มีต้นทางให้ถามก่อน
+## Cloudflare account
 
-## กระดานงาน
+- Production account `Pratchaya.mnop@gmail.com`, id `5093b764ea33977e138b71627193ea52`.
+- Local Wrangler may be authenticated as `sizssy@gmail.com`, which reaches **two** accounts. `account_id` is pinned in `wrangler.jsonc`; leave it pinned or a deploy can land in the wrong account.
 
-กระดานอยู่ที่ `../drpratchaya-mem` ไม่ใช่รีโปนี้ ต่อผ่าน MCP `agent-memory`
-เริ่มงานให้ `memory_onboard` ก่อน แล้วจองงานด้วย `memory_claim_ticket` ทุกครั้งก่อนลงมือ
-ใบที่ `claimed_by` ไม่ใช่ชื่อคุณ ห้ามแตะ — นี่คือสิ่งเดียวที่กันสองคนทำงานชนกัน
+## Secrets
 
-`.agent-mem/` ถูก track และ push ขึ้นรีโปส่วนตัว **pull ก่อน `memory_onboard` เสมอ**
-และ push ทันทีหลัง `memory_handoff` ยิ่งค้างในเครื่องนาน โอกาสชนยิ่งสูง
+- This repo is **public**. Never commit API keys, passwords, Turnstile secrets, LINE tokens, or patient data.
+- Secrets go through `wrangler secret put`, and GitHub Actions secrets for CI. Never a tracked file.
+- Never gate an endpoint behind a constant committed here. A reviewer found exactly that on a route that could create real appointments.
 
-## ห้ามรัน `setup-project.sh` ของ On Board กับสองรีโปนี้
+## Git workflow
 
-มันเติม `.agent-mem/` `CLAUDE.md` `AGENTS.md` `.cursorrules` ลง `.gitignore` ให้เอง
-ซึ่งคือของที่เรา track ไว้ กระดานจะหลุดออกจาก git แบบไม่มีสัญญาณอะไรเลย
-ถ้าเผลอรันไป ให้ไปถอนบรรทัดที่มันเติมใน `.gitignore` ออก
+- **Never commit directly to `main`.** Branch as `work/<your-name>/<topic>`, open a PR, let the repo owner merge.
+- **Never use `git commit -a`.** Stage paths explicitly. With several agents in one working directory, `-a` sweeps up someone else's half-written files — this has already happened once.
+- **Never run `git checkout`, `git switch`, or anything else that changes branches while another agent may be working.** All subagents share one working directory.
+- Pull before starting. Do not push, merge, or tag unless explicitly asked.
+
+## Medical and clinical content
+
+- **Never invent medical facts** — diagnoses, dosages, timelines, outcomes, citations, hospital names, or credentials.
+- **Clinical content is owner-reviewed.** Restructuring, migrating and reformatting are fine; changing a clinical claim, dosage, timeline or citation requires the owner's explicit approval.
+- `src/content/conditions/*.md` is git-tracked and changes only by reviewed PR. It is deliberately **not** editable from the admin panel. News and general articles live in D1 `posts` and are admin-published.
+- `/api/ask` answers strictly from those articles and refuses when grounding is weak. Never loosen that.
+
+## PDPA (Thailand)
+
+- **No patient-identifying data** in this repo, in commit messages, in logs, in fixtures, or in screenshots.
+- Booking stores only name, contact details, a brief problem description, and consent metadata with the version of the text consented to.
+
+## Engineering defaults
+
+- Astro 7 + `@astrojs/cloudflare` 14, `output: 'static'`, Tailwind v4 via `@tailwindcss/vite`, TypeScript strict.
+- Content pages stay static so they never invoke the Worker. Booking, admin and `/api/*` are SSR via `export const prerender = false`.
+- Design tokens are in `src/styles/global.css`. Four pairs are **banned as text colours** for contrast: `--teal` on cream, white on `--teal`, `--gold` on cream, `--text-2` on navy.
+- Thai body line-height is 1.75; tighter and the stacked vowel marks collide. Thai headings use Noto Serif Thai — Playfair Display has no Thai glyphs and silently falls back.
+- Owner gaps are `TODO(owner)` in `src/config/site.config.ts`.
+- Run `npm run index:search` after changing clinical Markdown, or semantic search goes stale.
+
+## When unsure
+
+Read the design spec. If a launch blocker is marked `TODO(owner)`, do not guess — use a placeholder and document the gap.
