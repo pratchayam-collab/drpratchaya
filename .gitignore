@@ -1,0 +1,9 @@
+.DS_Store
+doc-gitignored/
+assets/
+
+# ของ On Board ที่ผูกกับเครื่องแต่ละคน
+.onboard/
+.agent-mem-hooks/
+.claude/settings.local.json
+.cursor/*.local.json
