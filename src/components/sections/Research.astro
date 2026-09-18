@@ -1,0 +1,216 @@
+---
+/**
+ * Research. Publications are set as a real numbered reference list and
+ * conferences as a year-led chronology, with IBM Plex Mono carrying every
+ * number and year.
+ *
+ * The citations are transcribed verbatim from the reference files. Nothing in
+ * this component reformats, reorders or abbreviates them.
+ */
+import Section from '~/components/Section.astro';
+import {
+  authorSelf,
+  conferences,
+  publications,
+  type Locale,
+} from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+
+/** Split each author list so the doctor's own byline can be emphasised. */
+const referenceList = publications.map((publication, index) => ({
+  ...publication,
+  number: index + 1,
+  authorParts: publication.authors.split(authorSelf),
+}));
+---
+
+<Section id="research" number="05" kicker={t.researchKicker} heading={t.researchHeading}>
+  <div class="columns">
+    <section class="column">
+      <h3 class="column-heading">
+        {t.publicationsHeading}
+        <span class="column-count">{publications.length}</span>
+      </h3>
+
+      <ol class="ref-list">
+        {
+          referenceList.map((publication) => (
+            <li class="reference">
+              <span class="reference-number" aria-hidden="true">
+                [{publication.number}]
+              </span>
+              <div>
+                <p class="reference-title" lang="en">
+                  {publication.title}
+                </p>
+                <p class="reference-authors" lang="en">
+                  {publication.authorParts.map((part, index) => (
+                    <Fragment>
+                      {index > 0 && <strong>{authorSelf}</strong>}
+                      {part}
+                    </Fragment>
+                  ))}
+                </p>
+                <p class="reference-source" lang="en">
+                  <span class="reference-journal">{publication.journal}</span>
+                  <span class="reference-year">{publication.year}</span>
+                </p>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <section class="column">
+      <h3 class="column-heading">
+        {t.conferencesHeading}
+        <span class="column-count">{conferences.length}</span>
+      </h3>
+
+      <ol class="ref-list conferences">
+        {
+          conferences.map((conference) => (
+            <li class="ref-item">
+              <span class="ref-year">{conference.year}</span>
+              <div>
+                <p class="conference-name" lang="en">
+                  {conference.name}
+                </p>
+                <p class="conference-place" lang="en">
+                  {conference.place}
+                </p>
+                {conference.note && <p class="conference-note">{conference.note[locale]}</p>}
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+  </div>
+</Section>
+
+<style>
+  .columns {
+    display: grid;
+    gap: 3rem;
+    margin-top: 2.5rem;
+  }
+
+  @media (min-width: 1100px) {
+    .columns {
+      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+      gap: 3.5rem;
+    }
+  }
+
+  .column-heading {
+    display: flex;
+    align-items: baseline;
+    gap: 0.625rem;
+    font-size: var(--text-subhead);
+    font-weight: 600;
+    padding-bottom: 0.875rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .column-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--teal-deep);
+  }
+
+  .reference {
+    display: grid;
+    grid-template-columns: 2.25rem minmax(0, 1fr);
+    gap: 0.75rem;
+    padding-block: 1.25rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .reference:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+
+  .reference-number {
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    color: var(--teal-deep);
+    font-variant-numeric: tabular-nums;
+    padding-top: 0.1rem;
+  }
+
+  .reference-title {
+    font-size: var(--text-meta);
+    font-weight: 600;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  .reference-authors {
+    margin-top: 0.375rem;
+    font-size: var(--text-meta);
+    line-height: 1.7;
+    color: var(--text-2);
+  }
+
+  .reference-authors strong {
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .reference-source {
+    margin-top: 0.375rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: var(--text-micro);
+  }
+
+  .reference-journal {
+    color: var(--text-2);
+  }
+
+  .reference-year {
+    font-family: var(--font-mono);
+    color: var(--teal-deep);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Some conferences carry two years ("2023 · 2026"), which does not fit the
+     default year column. Sizing the column to its widest value keeps every
+     year on one line and still aligns the whole list. */
+  .conferences :global(.ref-item) {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .conference-name {
+    font-size: var(--text-meta);
+    font-weight: 600;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  .conference-place {
+    margin-top: 0.25rem;
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+
+  .conference-note {
+    margin-top: 0.4rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--teal-deep);
+  }
+</style>

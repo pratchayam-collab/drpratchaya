@@ -1,0 +1,220 @@
+---
+/**
+ * Hero: a journal cover block. Kicker, name set in Thai serif at display size,
+ * the short-answer paragraph, two actions, and one sharp portrait plate.
+ *
+ * The short answer is the best-written paragraph on the page: 40–60 Thai words
+ * that answer "is this the right doctor?" outright, set off by a single teal
+ * hairline rather than a callout box, so a person wants to read it and an
+ * answer engine can lift it whole.
+ */
+import { getImage } from 'astro:assets';
+import portrait from '~/assets/dr-pratchaya.jpg';
+import { doctor, shortAnswer, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+
+/**
+ * The portrait plate is cropped to 4:5 at build time.
+ *
+ * The source photograph is landscape (4160×2768), so a `cover` fit keeps the
+ * full height and trims the sides. `getImage` is used rather than `<Image>`
+ * because the crop options are only typed on the transform API, and CSS
+ * masking would mean shipping pixels the layout never shows.
+ */
+const plate = {
+  width: 400,
+  height: 500,
+} as const;
+
+const [plate1x, plate2x] = await Promise.all([
+  getImage({
+    src: portrait,
+    width: plate.width,
+    height: plate.height,
+    fit: 'cover',
+    position: 'center',
+    format: 'webp',
+    quality: 78,
+  }),
+  getImage({
+    src: portrait,
+    width: plate.width * 2,
+    height: plate.height * 2,
+    fit: 'cover',
+    position: 'center',
+    format: 'webp',
+    quality: 78,
+  }),
+]);
+
+const portraitAlt =
+  locale === 'th'
+    ? `ภาพถ่าย ${doctor.name.th} ${doctor.specialty.th}`
+    : `Portrait of ${doctor.name.en}, ${doctor.specialty.en}`;
+---
+
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="page hero-grid">
+    <div class="hero-text fade-up">
+      <p class="kicker hero-kicker">{doctor.specialty[locale]}</p>
+
+      <h1 id="hero-heading" class="hero-name">{doctor.name[locale]}</h1>
+
+      <p class="hero-sub">{doctor.subSpecialty[locale]}</p>
+
+      <hr class="hero-rule" />
+
+      <p class="hero-answer">{shortAnswer[locale]}</p>
+
+      <div class="hero-actions">
+        <a href="#appointment" class="btn btn-primary">{t.bookConsultation}</a>
+        <a href="#about" class="btn btn-secondary">{t.viewCv}</a>
+      </div>
+    </div>
+
+    <figure class="hero-figure">
+      {/* Explicit dimensions reserve the box, so the hero never shifts. */}
+      <img
+        src={plate1x.src}
+        srcset={`${plate1x.src} 1x, ${plate2x.src} 2x`}
+        alt={portraitAlt}
+        width={plate.width}
+        height={plate.height}
+        decoding="async"
+        loading="eager"
+        fetchpriority="high"
+        class="hero-image"
+      />
+      <figcaption class="hero-caption">
+        {doctor.name[locale]}
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-block: 2.25rem 2.75rem;
+  }
+
+  @media (min-width: 768px) {
+    .hero {
+      padding-block: 3.5rem 4.5rem;
+    }
+  }
+
+  .hero-grid {
+    display: grid;
+    gap: 2.5rem;
+    align-items: start;
+  }
+
+  @media (min-width: 900px) {
+    .hero-grid {
+      grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+      gap: 4rem;
+    }
+  }
+
+  .hero-kicker {
+    color: var(--teal-deep);
+  }
+
+  .hero-name {
+    margin-top: 0.875rem;
+    font-size: var(--text-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Latin letter-spacing pulls a Thai base glyph away from its vowel and tone
+     marks, so the Thai route keeps default tracking. */
+  .hero-name:lang(th) {
+    letter-spacing: normal;
+  }
+
+  .hero-sub {
+    margin-top: 0.75rem;
+    font-size: var(--text-subhead);
+    color: var(--text-2);
+    max-width: 30rem;
+  }
+
+  .hero-rule {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin-block: 2rem;
+    max-width: var(--container-measure);
+  }
+
+  /* The AI-quotable short answer. A single teal hairline in the margin, larger
+     type, generous leading, no background and no icon. */
+  .hero-answer {
+    max-width: var(--container-measure);
+    border-inline-start: 2px solid var(--teal-deep);
+    padding-inline-start: 1.25rem;
+    font-size: var(--text-lead);
+    line-height: 1.85;
+    color: var(--text);
+  }
+
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 2rem;
+  }
+
+  .hero-figure {
+    margin: 0;
+  }
+
+  .hero-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--teal-wash);
+  }
+
+  /* A plate caption, the way a journal labels a figure. */
+  .hero-caption {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: var(--text-micro);
+    color: var(--text-2);
+  }
+
+  @media (min-width: 900px) {
+    .hero-figure {
+      max-width: 20rem;
+      margin-inline-start: auto;
+    }
+  }
+
+  /* Tablet widths: cap it so the plate does not swallow the column, and centre
+     it so the leftover space reads as margin rather than as a gap. */
+  @media (max-width: 899px) {
+    .hero-figure {
+      max-width: 24rem;
+      margin-inline: auto;
+    }
+  }
+
+  /* Phones: fill the column. A capped plate left dead space beside it, which
+     looks like a broken grid rather than restraint. */
+  @media (max-width: 640px) {
+    .hero-figure {
+      max-width: none;
+    }
+  }
+</style>

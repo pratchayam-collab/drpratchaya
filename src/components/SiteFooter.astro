@@ -1,0 +1,140 @@
+---
+/**
+ * Footer, set on the navy band. Secondary text on navy uses --text-ink-2
+ * (8.35:1); --text-2 is only 2.77:1 on navy and must never appear here.
+ */
+import { contact, doctor, nav, site, type Locale } from '~/config/site.config';
+import { localePath, ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+const year = new Date().getFullYear();
+---
+
+<footer class="site-footer">
+  <div class="page footer-inner">
+    <div class="footer-identity">
+      <p class="footer-name">{doctor.name[locale]}</p>
+      <p class="footer-role">{doctor.specialty[locale]}</p>
+      <a href={`mailto:${contact.email}`} class="footer-email">{contact.email}</a>
+    </div>
+
+    <nav class="footer-nav" aria-label={t.menu}>
+      <ul>
+        {
+          nav.map((item) => (
+            <li>
+              <a href={item.hash}>{item.label[locale]}</a>
+            </li>
+          ))
+        }
+        <li>
+          <a href={localePath(locale, 'privacy/')}>{t.privacyPolicy}</a>
+        </li>
+      </ul>
+    </nav>
+
+    <hr class="footer-rule" />
+
+    <p class="footer-disclaimer">{t.footerDisclaimer}</p>
+    <p class="footer-legal">
+      <span class="footer-year">© {year}</span>
+      {' · '}{doctor.name[locale]}{' · '}{site.domain}{' · '}{t.footerRights}
+    </p>
+  </div>
+</footer>
+
+<style>
+  .site-footer {
+    background: var(--ink);
+    color: var(--text-ink-2);
+    padding-block: 3.5rem 3rem;
+  }
+
+  .footer-inner {
+    display: grid;
+    gap: 2rem;
+  }
+
+  .footer-name {
+    font-family: var(--font-head);
+    font-weight: 600;
+    font-size: var(--text-subhead);
+    color: var(--surface);
+  }
+
+  .footer-role {
+    font-size: var(--text-meta);
+    color: var(--text-ink-2);
+    margin-top: 0.25rem;
+  }
+
+  .footer-email {
+    display: inline-block;
+    margin-top: 1rem;
+    font-family: var(--font-mono);
+    font-size: var(--text-meta);
+    color: var(--accent-ink);
+  }
+
+  .footer-nav ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+  }
+
+  .footer-nav a {
+    font-size: var(--text-meta);
+    color: var(--text-ink-2);
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+
+  .footer-nav a:hover {
+    color: var(--surface);
+  }
+
+  .footer-rule {
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--text-ink-2) 24%, transparent);
+    margin: 0;
+  }
+
+  .footer-disclaimer {
+    font-size: var(--text-meta);
+    line-height: 1.8;
+    color: var(--text-ink-2);
+    max-width: var(--container-measure);
+  }
+
+  .footer-legal {
+    font-size: var(--text-micro);
+    color: var(--text-ink-2);
+  }
+
+  .footer-year {
+    font-family: var(--font-mono);
+  }
+
+  @media (min-width: 900px) {
+    .footer-inner {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      column-gap: 3.5rem;
+    }
+
+    .footer-nav {
+      justify-self: end;
+    }
+
+    .footer-rule,
+    .footer-disclaimer,
+    .footer-legal {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

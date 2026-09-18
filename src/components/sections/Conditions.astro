@@ -1,0 +1,96 @@
+---
+/**
+ * Condition article pages — Thai clinical content only on `/conditions/<slug>/`.
+ * English visitors use `/en/conditions/<slug>/` with a notice; body stays Thai.
+ */
+import Section from '~/components/Section.astro';
+import { conditions, type Locale } from '~/config/site.config';
+import { localePath, ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+---
+
+<Section
+  id="conditions"
+  number="04"
+  kicker={t.conditionsKicker}
+  heading={t.conditionsHeading}
+  intro={t.conditionsIntro}
+>
+  <ul class="list">
+    {
+      conditions.map((condition) => (
+        <li class="row">
+          <a href={localePath(locale, `conditions/${condition.slug}/`)} class="row-link">
+            <h3 class="row-title">{condition.title[locale]}</h3>
+            <p class="row-summary">{condition.summary[locale]}</p>
+            <span class="row-more">
+              {t.readMore}
+              <span aria-hidden="true">&nbsp;&rarr;</span>
+            </span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</Section>
+
+<style>
+  .list {
+    margin-top: 2.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .row {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .row-link {
+    display: block;
+    padding-block: 1.5rem;
+    color: inherit;
+    transition: background-color 180ms ease;
+  }
+
+  .row-link:hover {
+    text-decoration: none;
+    background: var(--teal-wash);
+  }
+
+  .row-title {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .row-link:hover .row-title {
+    color: var(--teal-deep);
+  }
+
+  .row-summary {
+    margin-top: 0.5rem;
+    max-width: var(--container-measure);
+    font-size: var(--text-meta);
+    line-height: 1.8;
+    color: var(--text-2);
+  }
+
+  .row-more {
+    display: inline-block;
+    margin-top: 0.75rem;
+    font-size: var(--text-micro);
+    font-weight: 600;
+    color: var(--teal-deep);
+  }
+
+  @media (min-width: 720px) {
+    .row-link {
+      padding-inline: 0.75rem;
+      margin-inline: -0.75rem;
+    }
+  }
+</style>

@@ -1,0 +1,95 @@
+---
+export const prerender = false;
+import AdminShell from '~/components/admin/AdminShell.astro';
+import { requireAdminPage, redirectToLogin } from '~/lib/auth/guard';
+import { env } from 'cloudflare:workers';
+import { loadDashboardFunnel } from '~/lib/admin/analytics';
+
+const auth = await requireAdminPage(Astro.request);
+if (!auth) return redirectToLogin();
+
+const funnel = await loadDashboardFunnel(env.DB);
+---
+
+<AdminShell title="ภาพรวม" email={auth.user.email} csrfToken={auth.session.csrfToken} active="dashboard">
+  <section class="grid gap-4 sm:grid-cols-3">
+    <div class="rounded-2xl border border-rule bg-teal-wash p-4">
+      <p class="text-meta text-text-2">รอการยืนยัน</p>
+      <p class="mt-1 font-mono text-title font-semibold text-ink">{funnel.pendingAppointments}</p>
+    </div>
+    <div class="rounded-2xl border border-rule bg-white p-4">
+      <p class="text-meta text-text-2">ยืนยันแล้ววันนี้</p>
+      <p class="mt-1 font-mono text-title font-semibold text-ink">{funnel.confirmedToday}</p>
+    </div>
+    <div class="rounded-2xl border border-rule bg-white p-4">
+      <p class="text-meta text-text-2">เสร็จสิ้น 7 วัน</p>
+      <p class="mt-1 font-mono text-title font-semibold text-ink">{funnel.completedThisWeek}</p>
+    </div>
+  </section>
+  <p class="mt-4 text-micro text-text-2">{funnel.analyticsNote}</p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    <a
+      href="/admin/appointments/?status=pending"
+      class="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-deep px-5 text-prose font-medium text-white"
+    >
+      เปิดคิวรอยืนยัน
+    </a>
+  </div>
+  <div id="dash-extra" class="mt-8 space-y-3"></div>
+  <script define:vars={{ csrfToken: auth.session.csrfToken }}>
+    window.__ADMIN_CSRF__ = csrfToken;
+
+    function formatSlot(start, end) {
+      const d = new Date(start);
+      const a = d.toLocaleString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const e = new Date(end).toLocaleTimeString('th-TH', {
+        timeZone: 'Asia/Bangkok',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      return `${a}–${e} น.`;
+    }
+
+    (async () => {
+    const res = await fetch('/api/admin/dashboard', { credentials: 'same-origin' });
+    const data = await res.json();
+    const root = document.getElementById('dash-extra');
+    if (!data.ok || !root) return;
+
+    const pending = data.pendingPreview ?? [];
+    const today = data.todaySchedule ?? [];
+
+    root.innerHTML = `
+      <section>
+        <h2 class="font-head text-subhead font-semibold text-ink">คำขอล่าสุด</h2>
+        <ul class="mt-3 space-y-2">
+          ${pending
+            .map(
+              (a) => `<li class="rounded-xl border border-rule bg-white p-3 text-meta">
+                <strong>${a.patient_name}</strong> · ${formatSlot(a.starts_at, a.ends_at)}
+              </li>`,
+            )
+            .join('') || '<li class="text-text-2">ไม่มีคำขอค้าง</li>'}
+        </ul>
+      </section>
+      <section class="mt-6">
+        <h2 class="font-head text-subhead font-semibold text-ink">ตารางวันนี้</h2>
+        <ul class="mt-3 space-y-2">
+          ${today
+            .map(
+              (a) => `<li class="rounded-xl border border-rule bg-white p-3 text-meta">
+                ${formatSlot(a.starts_at, a.ends_at)} — ${a.patient_name} (${a.status})
+              </li>`,
+            )
+            .join('') || '<li class="text-text-2">ไม่มีนัดวันนี้</li>'}
+        </ul>
+      </section>`;
+    })();
+  </script>
+</AdminShell>

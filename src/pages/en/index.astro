@@ -1,0 +1,16 @@
+---
+/**
+ * English homepage, a real route at `/en/` rather than a CSS toggle over the
+ * Thai DOM.
+ */
+import HomePage from '~/components/HomePage.astro';
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { ui } from '~/i18n/ui';
+
+const locale = 'en' as const;
+const t = ui[locale];
+---
+
+<BaseLayout locale={locale} title={t.homeTitle} description={t.homeDescription}>
+  <HomePage locale={locale} />
+</BaseLayout>

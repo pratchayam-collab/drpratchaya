@@ -1,0 +1,315 @@
+---
+/**
+ * Self-contained Thai-first medical search + grounded Q&A.
+ * Coordinator: place on home (`src/pages/index.astro`) below the hero, or on
+ * `src/pages/conditions/index.astro` above the article list.
+ */
+interface Props {
+  /** When true, show the natural-language “ถาม” action (calls `/api/ask`). */
+  enableAsk?: boolean;
+  class?: string;
+}
+
+const { enableAsk = true, class: className = '' } = Astro.props;
+---
+
+<section
+  class:list={['medical-search', className]}
+  data-medical-search
+  data-enable-ask={enableAsk ? '1' : '0'}
+  aria-label="ค้นหาบทความทางการแพทย์"
+>
+  <form class="ms-form" role="search" data-ms-form>
+    <label class="ms-label" for="ms-query">ค้นหาหัวข้อสุขภาพในบทความของนพ.ปรัชญา</label>
+    <div class="ms-row">
+      <input
+        id="ms-query"
+        class="ms-input"
+        name="q"
+        type="search"
+        enterkeyhint="search"
+        autocomplete="off"
+        maxlength="500"
+        placeholder="เช่น เอ็นไขว้หน้า ฟื้นฟูกี่เดือน"
+        data-ms-input
+      />
+      <button type="submit" class="ms-btn ms-btn-primary" data-ms-search>ค้นหา</button>
+    </div>
+    {enableAsk && (
+      <button type="button" class="ms-btn ms-btn-secondary" data-ms-ask>
+        ถามเป็นประโยค (ตอบจากบทความเท่านั้น)
+      </button>
+    )}
+  </form>
+  <p class="ms-hint" data-ms-status role="status" aria-live="polite"></p>
+  <ul class="ms-results" data-ms-results hidden></ul>
+  <article class="ms-answer" data-ms-answer hidden></article>
+</section>
+
+<style>
+  .medical-search {
+    font-family: var(--font-body);
+    color: var(--text);
+    line-height: 1.75;
+    max-width: var(--container-measure);
+  }
+
+  .ms-label {
+    display: block;
+    font-size: var(--text-meta);
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .ms-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .ms-input {
+    flex: 1 1 12rem;
+    min-width: 0;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    line-height: 1.75;
+  }
+
+  .ms-input:focus-visible {
+    outline: 2px solid var(--teal-deep);
+    outline-offset: 2px;
+  }
+
+  .ms-btn {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+
+  .ms-btn-primary {
+    background: var(--teal-deep);
+    color: var(--color-white);
+  }
+
+  .ms-btn-secondary {
+    margin-top: 0.5rem;
+    background: var(--teal-wash);
+    color: var(--teal-deep);
+    border-color: var(--border);
+    width: 100%;
+    text-align: center;
+  }
+
+  .ms-hint {
+    font-size: var(--text-meta);
+    color: var(--text-2);
+    margin: 0.75rem 0 0;
+    min-height: 1.5rem;
+  }
+
+  .ms-results {
+    list-style: none;
+    margin: 1rem 0 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .ms-results[hidden],
+  .ms-answer[hidden] {
+    display: none;
+  }
+
+  .ms-result {
+    padding: 0.75rem 1rem;
+    background: var(--teal-wash);
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+  }
+
+  .ms-result a {
+    color: var(--teal-deep);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+  }
+
+  .ms-result-meta {
+    font-size: var(--text-micro);
+    color: var(--text-2);
+    margin: 0.25rem 0 0;
+  }
+
+  .ms-answer {
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.25rem;
+    background: var(--surface);
+  }
+
+  .ms-answer-body {
+    margin: 0 0 0.75rem;
+    white-space: pre-wrap;
+  }
+
+  .ms-cite {
+    font-size: var(--text-meta);
+    margin: 0.5rem 0 0;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+  }
+
+  .ms-book {
+    display: inline-block;
+    margin-top: 0.75rem;
+    min-height: 2.75rem;
+    line-height: 2.75rem;
+    padding: 0 1rem;
+    background: var(--teal-deep);
+    color: var(--color-white);
+    border-radius: 0.25rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+</style>
+
+<script is:inline>
+  (function () {
+    const root = document.querySelector('[data-medical-search]');
+    if (!root) return;
+    const form = root.querySelector('[data-ms-form]');
+    const input = root.querySelector('[data-ms-input]');
+    const status = root.querySelector('[data-ms-status]');
+    const resultsEl = root.querySelector('[data-ms-results]');
+    const answerEl = root.querySelector('[data-ms-answer]');
+    const askBtn = root.querySelector('[data-ms-ask]');
+    const enableAsk = root.getAttribute('data-enable-ask') === '1';
+
+    function setStatus(msg) {
+      if (status) status.textContent = msg || '';
+    }
+
+    function hidePanels() {
+      resultsEl?.setAttribute('hidden', '');
+      answerEl?.setAttribute('hidden', '');
+      if (resultsEl) resultsEl.innerHTML = '';
+      if (answerEl) answerEl.innerHTML = '';
+    }
+
+    async function runSearch(q) {
+      hidePanels();
+      setStatus('กำลังค้นหา…');
+      const res = await fetch('/api/search?q=' + encodeURIComponent(q), {
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus(data.error?.message || 'ค้นหาไม่สำเร็จ');
+        return;
+      }
+      const items = data.results || [];
+      if (!items.length) {
+        setStatus('ไม่พบบทความที่ตรงกับคำค้น — ลองคำอื่นหรือนัดปรึกษาแพทย์');
+        return;
+      }
+      setStatus('พบ ' + items.length + ' ส่วนที่เกี่ยวข้อง');
+      resultsEl?.removeAttribute('hidden');
+      for (const hit of items) {
+        const li = document.createElement('li');
+        li.className = 'ms-result';
+        li.innerHTML =
+          '<a href="' +
+          hit.url +
+          '">' +
+          escapeHtml(hit.title) +
+          '</a>' +
+          '<p>' +
+          escapeHtml(hit.excerpt) +
+          '</p>' +
+          '<p class="ms-result-meta">' +
+          escapeHtml(hit.sectionTitle || '') +
+          '</p>';
+        resultsEl?.appendChild(li);
+      }
+    }
+
+    async function runAsk(q) {
+      hidePanels();
+      setStatus('กำลังตรวจสอบจากบทความ…');
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ question: q }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus(data.error?.message || 'ไม่สามารถตอบคำถามได้ในขณะนี้');
+        return;
+      }
+      answerEl?.removeAttribute('hidden');
+      if (data.outcome === 'refused') {
+        setStatus('');
+        answerEl.innerHTML =
+          '<p class="ms-answer-body">' +
+          escapeHtml(data.message || '') +
+          '</p><a class="ms-book" href="' +
+          (data.bookPath || '/book') +
+          '">นัดปรึกษา</a>';
+        return;
+      }
+      setStatus('');
+      let html = '<p class="ms-answer-body">' + escapeHtml(data.answer || '') + '</p>';
+      for (const c of data.citations || []) {
+        html +=
+          '<p class="ms-cite">อ้างอิง: <a href="' +
+          c.url +
+          '">' +
+          escapeHtml(c.title) +
+          '</a><br><q>' +
+          escapeHtml(c.quote) +
+          '</q></p>';
+      }
+      html +=
+        '<a class="ms-book" href="' + (data.bookPath || '/book') + '">นัดปรึกษาเพิ่มเติม</a>';
+      answerEl.innerHTML = html;
+    }
+
+    function escapeHtml(s) {
+      return String(s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    form?.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const q = input?.value?.trim();
+      if (!q) return;
+      runSearch(q);
+    });
+
+    askBtn?.addEventListener('click', function () {
+      if (!enableAsk) return;
+      const q = input?.value?.trim();
+      if (!q) {
+        setStatus('พิมพ์คำถามก่อนกดถาม');
+        return;
+      }
+      runAsk(q);
+    });
+  })();
+</script>

@@ -1,0 +1,54 @@
+---
+/**
+ * The journal section primitive.
+ *
+ * A hairline rule opens each section, then a two-column grid: a narrow
+ * marginal column carrying the section number and kicker, and the content
+ * column. On narrow screens the marginal column stacks above the content.
+ */
+interface Props {
+  id: string;
+  /** Section number, set in mono and prefixed with a section mark. */
+  number: string;
+  kicker: string;
+  heading: string;
+  /** Optional standfirst, set at lead size below the heading. */
+  intro?: string | undefined;
+}
+
+const { id, number, kicker, heading, intro } = Astro.props;
+const headingId = `${id}-heading`;
+---
+
+<section id={id} class="section" aria-labelledby={headingId}>
+  <div class="page section-grid">
+    <div class="section-marginal">
+      <span class="section-number" aria-hidden="true">§&nbsp;{number}</span>
+      <span class="kicker">{kicker}</span>
+    </div>
+
+    <div class="section-body">
+      <h2 id={headingId} class="section-heading">{heading}</h2>
+      {intro && <p class="section-intro measure">{intro}</p>}
+      <slot />
+    </div>
+  </div>
+</section>
+
+<style>
+  .section-heading {
+    font-size: var(--text-heading);
+    font-weight: 600;
+  }
+
+  .section-intro {
+    margin-top: 1rem;
+    font-size: var(--text-lead);
+    line-height: 1.8;
+    color: var(--text-2);
+  }
+
+  .section-body > :global(:not(.section-heading):not(.section-intro):first-of-type) {
+    margin-top: 0;
+  }
+</style>

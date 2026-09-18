@@ -1,0 +1,29 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PrivacyPolicyBody from '~/components/legal/PrivacyPolicyBody.astro';
+import type { Locale } from '~/config/site.config';
+
+const locale = 'en' satisfies Locale;
+const title = 'Privacy policy — Dr. Pratchaya Manop';
+const description = 'How appointment request data is collected, used, and erased on drpratchaya.com';
+---
+
+<BaseLayout locale={locale} title={title} description={description}>
+  <div class="page">
+    <header class="legal-head">
+      <h1 class="legal-title">Privacy policy</h1>
+    </header>
+    <PrivacyPolicyBody locale={locale} />
+  </div>
+</BaseLayout>
+
+<style>
+  .legal-head {
+    padding-top: 2.5rem;
+  }
+
+  .legal-title {
+    font-size: var(--text-title);
+    line-height: 1.3;
+  }
+</style>

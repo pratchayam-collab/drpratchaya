@@ -1,0 +1,34 @@
+---
+/**
+ * The homepage composition, shared by both locale routes.
+ *
+ * Hybrid layout (owner-approved): compact hero → credential cards → booking (3rd)
+ * → about → expertise → conditions → formal publication list → orgs → contact.
+ */
+import About from '~/components/sections/About.astro';
+import Booking from '~/components/sections/Booking.astro';
+import Conditions from '~/components/sections/Conditions.astro';
+import Contact from '~/components/sections/Contact.astro';
+import CredentialCards from '~/components/sections/CredentialCards.astro';
+import Expertise from '~/components/sections/Expertise.astro';
+import Hero from '~/components/sections/Hero.astro';
+import Organizations from '~/components/sections/Organizations.astro';
+import Research from '~/components/sections/Research.astro';
+import type { Locale } from '~/config/site.config';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+---
+
+<Hero locale={locale} />
+<CredentialCards locale={locale} />
+<Booking locale={locale} />
+<About locale={locale} />
+<Expertise locale={locale} />
+<Conditions locale={locale} />
+<Research locale={locale} />
+<Organizations locale={locale} />
+<Contact locale={locale} />

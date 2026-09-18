@@ -1,0 +1,50 @@
+---
+export const prerender = false;
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import DataSubjectRequestForm from '~/components/legal/DataSubjectRequestForm.astro';
+import type { Locale } from '~/config/site.config';
+import { localePath } from '~/i18n/ui';
+
+const locale = 'en' satisfies Locale;
+---
+
+<BaseLayout
+  locale={locale}
+  title="Personal data requests"
+  description="Export or erase booking data linked to your email"
+>
+  <div class="page">
+    <header class="legal-head">
+      <h1 class="legal-title">Personal data requests</h1>
+      <p class="legal-intro measure">
+        We email a verification code to the address you enter before any export or erasure. See the{' '}
+        <a href={localePath(locale, 'privacy/')}>privacy policy</a> for details.
+      </p>
+    </header>
+    <DataSubjectRequestForm locale={locale} />
+  </div>
+</BaseLayout>
+
+<style>
+  .legal-head {
+    padding-top: 2.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .legal-title {
+    font-size: var(--text-title);
+    line-height: 1.3;
+  }
+
+  .legal-intro {
+    margin-top: 0.75rem;
+    font-size: var(--text-lead);
+    line-height: 1.75;
+    color: var(--text-2);
+  }
+
+  .legal-intro a {
+    color: var(--teal-deep);
+    font-weight: 600;
+  }
+</style>

@@ -1,0 +1,187 @@
+---
+import type { Locale } from '~/config/site.config';
+import { BOOKING_CONSENT_VERSION } from '~/lib/consent';
+import { localePath } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const requestsHref = localePath(locale, 'privacy/requests/');
+---
+
+<article class="legal measure">
+  {
+    locale === 'th' ? (
+      <>
+        <p class="legal-meta">
+          เวอร์ชันนโยบายการยินยอมสำหรับการจอง: <code>{BOOKING_CONSENT_VERSION}</code>
+        </p>
+        <p>
+          หน้านี้อธิบายการเก็บรวบรวมและใช้ข้อมูลส่วนบุคคลตามที่ระบบของเว็บไซต์นี้ทำงานจริง
+          (ไม่ใช่คำแนะนำทางกฎหมาย)
+        </p>
+
+        <h2>ผู้ควบคุมข้อมูล</h2>
+        <p class="todo-owner">
+          TODO(owner): ระบุชื่อและที่อยู่ของผู้ควบคุมข้อมูล (data controller) และช่องทางติดต่อหลักสำหรับเรื่อง
+          PDPA
+        </p>
+
+        <h2>ข้อมูลที่เก็บผ่านการขอนัดหมาย</h2>
+        <p>
+          เมื่อคุณส่งคำขอนัดผ่านเว็บไซต์ ระบบจะเก็บเฉพาะชื่อ-นามสกุล หมายเลขโทรศัพท์ อีเมล คำอธิบายอาการโดยสังเขป
+          และข้อมูลการยินยอม (เวอร์ชันข้อความที่ยอมรับ เวลาที่ยินยอม และที่อยู่ IP ในการบันทึกยินยอม) ไม่มีการสร้างบัญชีผู้ป่วย
+          และไม่เก็บประวัติการรักษา ผลตรวจ หรือข้อมูลทางคลินิกอื่นในระบบนี้
+        </p>
+
+        <h2>วัตถุประสงค์</h2>
+        <p>
+          ข้อมูลดังกล่าวใช้เพื่อประมวลผลคำขอนัดหมาย ติดต่อกลับ และดำเนินการตามสถานะนัด (ยืนยัน ปฏิเสธ ยกเลิก
+          หรือเลื่อน) ผ่านอีเมลและช่องทางที่คุณให้มา
+        </p>
+        <p class="todo-owner">
+          TODO(owner): ระบุฐานทางกฎหมายตาม PDPA สำหรับแต่ละวัตถุประสงค์ (เช่น ความยินยอม หรือฐานอื่นที่เลือกใช้)
+        </p>
+
+        <h2>การยินยอมและเวอร์ชันข้อความ</h2>
+        <p>
+          การยินยอมถูกบันทึกในตาราง <code>consent_log</code> พร้อม <strong>เวอร์ชัน</strong> ของข้อความที่แสดงตอนส่งคำขอ
+          การยินยอมต่อเวอร์ชันเก่าไม่ถือว่ายินยอมต่อข้อความที่เปลี่ยนแปลง — เมื่อข้อความเปลี่ยน ระบบจะใช้รหัสเวอร์ชันใหม่
+        </p>
+
+        <h2>ระยะเวลาเก็บรักษา</h2>
+        <p>
+          งานอัตโนมัติรายวัน (cron <code>30 18 * * *</code> UTC ≈ 01:30 น. เวลาไทย) จะลบหรือทำให้ข้อมูลติดต่อของผู้ขอนัดเป็น
+         ค่า <code>[erased]</code> เมื่อนัดอยู่ในสถานะสิ้นสุด (<code>completed</code>, <code>cancelled_by_patient</code>,
+          <code>declined_by_clinic</code>, <code>no_show</code>) และผ่านไปแล้ว <strong>12 เดือน</strong> นับจากเวลาสิ้นสุดที่บันทึกในระบบ
+          (ใช้ <code>completed_at</code>, <code>cancelled_at</code> หรือ <code>updated_at</code> ตามที่มี)
+        </p>
+
+        <h2>การวิเคราะห์การใช้งาน</h2>
+        <p>
+          เว็บไซต์ผูกกับ Cloudflare Analytics Engine (<code>drpratchaya_metrics</code>) สำหรับบันทึกเหตุการณ์แบบรวม
+          โดยไม่ใช้คุกกี้ติดตามจากบุคคลที่สามในโค้ดของเว็บไซต์นี้
+        </p>
+
+        <h2>การเปิดเผยต่อบุคคลที่สาม</h2>
+        <p class="todo-owner">
+          TODO(owner): ระบุว่ามีการส่งต่อข้อมูลให้โรงพยาบาล พันธมิตรอีเมล หรือผู้ให้บริการโฮสติ้งอื่นหรือไม่ และภายใต้ข้อตกลงใด
+        </p>
+
+        <h2>สิทธิของเจ้าของข้อมูล</h2>
+        <p>
+          คุณสามารถขอสำเนาข้อมูลการจองที่ผูกกับอีเมลของคุณ หรือขอให้ลบข้อมูลติดต่อในระบบจอง ผ่านหน้า{' '}
+          <a href={requestsHref}>คำขอข้อมูลส่วนบุคคล</a> ระบบจะส่งรหัสยืนยันไปยังอีเมลนั้นก่อนดำเนินการ
+          (ไม่ดำเนินการจากการอ้างอีเมลโดยไม่ยืนยัน)
+        </p>
+        <p class="todo-owner">
+          TODO(owner): ระบุช่องทางติดต่อเพิ่มเติม (เช่น อีเมล DPO) หากต้องการรับคำขอนอกระบบออนไลน์
+        </p>
+      </>
+    ) : (
+      <>
+        <p class="legal-meta">
+          Booking consent policy version: <code>{BOOKING_CONSENT_VERSION}</code>
+        </p>
+        <p>
+          This page describes what this website&apos;s systems actually collect and do — not legal advice.
+        </p>
+
+        <h2>Data controller</h2>
+        <p class="todo-owner">
+          TODO(owner): Name and address of the data controller and the primary PDPA contact channel.
+        </p>
+
+        <h2>Appointment request data</h2>
+        <p>
+          When you submit an appointment request, we store only your name, phone, email, a brief problem description,
+          and consent metadata (the policy text version you accepted, timestamp, and IP on the consent record). There are
+          no patient accounts and no clinical records, test results, or imaging in this system.
+        </p>
+
+        <h2>Purposes</h2>
+        <p>
+          This information is used to process your request, contact you, and handle appointment status (confirm, decline,
+          cancel, reschedule) via the channels you provide.
+        </p>
+        <p class="todo-owner">
+          TODO(owner): State the lawful basis under Thai PDPA for each purpose (e.g. consent or another basis you choose).
+        </p>
+
+        <h2>Consent versioning</h2>
+        <p>
+          Consent is stored in <code>consent_log</code> with the <strong>version</strong> of the text shown at submission.
+          Consent to an older version is not consent to changed wording — when text changes, the system uses a new version
+          id.
+        </p>
+
+        <h2>Retention</h2>
+        <p>
+          A daily job (cron <code>30 18 * * *</code> UTC, about 01:30 Bangkok) erases guest contact fields (replaced with{' '}
+          <code>[erased]</code>) for appointments in terminal statuses (<code>completed</code>,{' '}
+          <code>cancelled_by_patient</code>, <code>declined_by_clinic</code>, <code>no_show</code>) once{' '}
+          <strong>12 months</strong> have passed since the recorded end time (<code>completed_at</code>,{' '}
+          <code>cancelled_at</code>, or <code>updated_at</code> as available).
+        </p>
+
+        <h2>Analytics</h2>
+        <p>
+          The site is wired to Cloudflare Analytics Engine (<code>drpratchaya_metrics</code>) for aggregate events, without
+          third-party tracking cookies in this site&apos;s code.
+        </p>
+
+        <h2>Sharing</h2>
+        <p class="todo-owner">
+          TODO(owner): Whether data is shared with hospitals, email providers, or other processors, and on what terms.
+        </p>
+
+        <h2>Your rights</h2>
+        <p>
+          You may request a copy of booking data linked to your email or request erasure via the{' '}
+          <a href={requestsHref}>data subject request</a> page. A verification code is sent to that email before any
+          export or deletion — we do not act on an unverified email claim.
+        </p>
+        <p class="todo-owner">
+          TODO(owner): Optional offline contact (e.g. DPO email) if you want requests outside the online form.
+        </p>
+      </>
+    )
+  }
+</article>
+
+<style>
+  .legal {
+    padding-block: 2.5rem 3.5rem;
+    font-size: var(--text-prose);
+    line-height: 1.75;
+  }
+
+  .legal h2 {
+    margin-top: 2rem;
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .legal p {
+    margin-top: 0.75rem;
+  }
+
+  .legal-meta {
+    font-size: var(--text-meta);
+    color: var(--text-2);
+  }
+
+  .todo-owner {
+    padding: 0.75rem 1rem;
+    border: 1px dashed var(--gold);
+    background: color-mix(in srgb, var(--gold) 12%, transparent);
+    font-size: var(--text-meta);
+  }
+
+  .legal a {
+    color: var(--teal-deep);
+    font-weight: 600;
+  }
+</style>

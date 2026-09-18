@@ -1,0 +1,78 @@
+---
+export const prerender = false;
+import '~/styles/global.css';
+---
+
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>เข้าสู่ระบบ · Admin</title>
+  </head>
+  <body class="flex min-h-dvh items-center justify-center bg-surface px-4 font-body text-text">
+    <form id="login-form" class="w-full max-w-md rounded-2xl border border-rule bg-white p-6 shadow-sm">
+      <h1 class="font-head text-heading font-semibold text-ink">เข้าสู่ระบบผู้ดูแล</h1>
+      <p class="mt-2 text-meta text-text-2">อีเมล รหัสผ่าน และรหัสยืนยันสองชั้น (TOTP)</p>
+      <label class="mt-5 block text-meta font-medium">อีเมล</label>
+      <input
+        name="email"
+        type="email"
+        required
+        autocomplete="username"
+        class="mt-1 w-full min-h-11 rounded-xl border border-rule px-3 text-prose"
+      />
+      <label class="mt-4 block text-meta font-medium">รหัสผ่าน</label>
+      <input
+        name="password"
+        type="password"
+        required
+        autocomplete="current-password"
+        class="mt-1 w-full min-h-11 rounded-xl border border-rule px-3 text-prose"
+      />
+      <label class="mt-4 block text-meta font-medium">รหัส TOTP (6 หลัก)</label>
+      <input
+        name="totp"
+        type="text"
+        inputmode="numeric"
+        pattern="[0-9]{6}"
+        required
+        autocomplete="one-time-code"
+        class="mt-1 w-full min-h-11 rounded-xl border border-rule px-3 font-mono text-prose tracking-widest"
+      />
+      <p id="login-error" class="mt-3 hidden text-meta text-teal-deep" role="alert"></p>
+      <button
+        type="submit"
+        class="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-teal-deep px-4 text-prose font-medium text-white"
+      >
+        เข้าสู่ระบบ
+      </button>
+    </form>
+    <script>
+      const form = document.getElementById('login-form');
+      const err = document.getElementById('login-error');
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        err?.classList.add('hidden');
+        const fd = new FormData(form as HTMLFormElement);
+        const res = await fetch('/api/admin/auth/login', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: fd.get('email'),
+            password: fd.get('password'),
+            totp: fd.get('totp'),
+          }),
+        });
+        const data = (await res.json()) as { error?: { message?: string } };
+        if (!res.ok) {
+          err!.textContent = data.error?.message ?? 'เข้าสู่ระบบไม่สำเร็จ';
+          err!.classList.remove('hidden');
+          return;
+        }
+        location.href = '/admin/';
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+---
+/**
+ * Renders a bilingual value, or a visibly unfilled chip when the owner has not
+ * supplied it yet.
+ *
+ * The requirement travels into the markup as `data-needs`, so the missing data
+ * is discoverable in devtools without being announced to screen readers or
+ * shown to patients.
+ */
+import {
+  isPlaceholder,
+  type Bilingual,
+  type Locale,
+  type Maybe,
+} from '~/config/site.config';
+
+interface Props {
+  value: Maybe<Bilingual>;
+  locale: Locale;
+  class?: string | undefined;
+}
+
+const { value, locale, class: className } = Astro.props;
+---
+
+{
+  isPlaceholder(value) ? (
+    <span class:list={['placeholder', className]} data-needs={value.needs}>
+      {value.label[locale]}
+    </span>
+  ) : (
+    <span class={className}>{value[locale]}</span>
+  )
+}

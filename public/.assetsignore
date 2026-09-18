@@ -1,0 +1,10 @@
+# Kept out of the public static-asset bundle.
+#
+# `_worker.js` is the Worker entry, referenced by `main` in wrangler.jsonc.
+# Astro writes it inside the build output directory, which is also the assets
+# directory, so without this file wrangler would upload the server bundle as
+# publicly fetchable static files.
+_worker.js
+
+# Astro's route metadata. Consumed at build time; nothing should fetch it.
+_routes.json

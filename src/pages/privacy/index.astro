@@ -1,0 +1,30 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import PrivacyPolicyBody from '~/components/legal/PrivacyPolicyBody.astro';
+import type { Locale } from '~/config/site.config';
+
+const locale = 'th' satisfies Locale;
+const title = 'นโยบายความเป็นส่วนตัว — นพ.ปรัชญา มานพ';
+const description =
+  'การเก็บรวบรวม การใช้ และการลบข้อมูลส่วนบุคคลสำหรับการขอนัดผ่านเว็บไซต์ drpratchaya.com';
+---
+
+<BaseLayout locale={locale} title={title} description={description}>
+  <div class="page">
+    <header class="legal-head">
+      <h1 class="legal-title">นโยบายความเป็นส่วนตัว</h1>
+    </header>
+    <PrivacyPolicyBody locale={locale} />
+  </div>
+</BaseLayout>
+
+<style>
+  .legal-head {
+    padding-top: 2.5rem;
+  }
+
+  .legal-title {
+    font-size: var(--text-title);
+    line-height: 1.3;
+  }
+</style>

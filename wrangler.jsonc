@@ -1,0 +1,157 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+
+  "name": "drpratchaya",
+
+  // Pinned deliberately. The wrangler login on the development machine can
+  // reach more than one Cloudflare account, so an unpinned config could deploy
+  // this site to the wrong one. Do not replace this with an env var.
+  "account_id": "5093b764ea33977e138b71627193ea52",
+
+  "compatibility_date": "2026-09-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Workers Builds runs `npx wrangler versions upload` and does NOT build first.
+  // Its build step is a dashboard field (Worker > Settings > Builds > Build
+  // command = `npm run build`), not a key in this file: a `build.command` here
+  // makes wrangler esbuild `main` a second time, outside the Astro/Vite build,
+  // and that pass cannot resolve the adapter's virtual modules.
+  //
+  // Adapter 14 (@astrojs/cloudflare 14.x): Vite validates `main` at config time,
+  // so this must exist before `astro build`. Wrangler resolves the built Worker
+  // from the same entry during deploy (output under `dist/server/`).
+  "main": "./src/worker.ts",
+
+  "assets": {
+    // Astro 7 + adapter 14: prerendered static files live under `dist/client/`.
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": false
+  },
+
+  // The workers.dev hostname served a full copy of this site, which search
+  // engines can crawl and index as a competing duplicate of www. Switched off
+  // so www.drpratchaya.com is the only host that answers.
+  "workers_dev": false,
+
+  // Production hostname (already attached in Cloudflare). Do not rename the Worker.
+  "routes": [
+    {
+      "pattern": "www.drpratchaya.com",
+      "custom_domain": true
+    }
+  ],
+
+  "vars": {
+    "PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAE7-FZyXpCG5QrGe"
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "drpratchaya-db",
+      "database_id": "d0b58331-4b71-4d25-8255-2c779a7a753d",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Application KV (design spec §4). Adapter 14 also injects a separate `SESSION`
+  // binding for Astro's optional KV session driver — see infra-bindings.md.
+  "kv_namespaces": [
+    {
+      "binding": "SESSIONS",
+      "id": "3a5594ff17c54fb09b2eb0a318be17c6",
+      "preview_id": "55a59e309b124ea8bb3444d18d52aaf5"
+    },
+    {
+      "binding": "CACHE_TAGS",
+      "id": "fcd1538406864744a3091cd705ef7624",
+      "preview_id": "65af1ac07d89421b83cdaa11977c483e"
+    }
+  ],
+
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "drpratchaya-media"
+    }
+  ],
+
+  "queues": {
+    "producers": [
+      {
+        "queue": "notify",
+        "binding": "NOTIFY"
+      }
+    ],
+    "consumers": [
+      {
+        "queue": "notify",
+        "dead_letter_queue": "notify-dlq",
+        "max_retries": 3
+      }
+    ]
+  },
+
+  "vectorize": [
+    {
+      "binding": "VECTORIZE",
+      "index_name": "drpratchaya-embeddings"
+    }
+  ],
+
+  // Declarative bindings: no resource id to provision, the platform supplies them.
+  "ai": {
+    "binding": "AI"
+  },
+
+  "browser": {
+    "binding": "BROWSER"
+  },
+
+  "send_email": [
+    {
+      "name": "EMAIL"
+    }
+  ],
+
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "drpratchaya_metrics"
+    }
+  ],
+
+  // Hourly drives appointment reminders, which need finer granularity than daily
+  // to land 24h ahead. The 18:30 UTC run is 01:30 Asia/Bangkok, chosen so
+  // maintenance (slot generation, no-show marking, retention deletion) happens
+  // when no patient is booking.
+  "triggers": {
+    "crons": ["0 * * * *", "30 18 * * *"]
+  },
+
+  "observability": {
+    "enabled": true
+  },
+
+  // Staging Worker (`drpratchaya-staging`) is not deployed yet; bindings only.
+  "env": {
+    "staging": {
+      "name": "drpratchaya-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "drpratchaya-db-staging",
+          "database_id": "8916efda-6509-4206-a690-93a1b5e2a178"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "MEDIA",
+          "bucket_name": "drpratchaya-media-staging"
+        }
+      ]
+    }
+  }
+}

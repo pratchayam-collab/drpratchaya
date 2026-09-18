@@ -1,0 +1,89 @@
+---
+/**
+ * Expertise. Six numbered entries laid out on a rule grid — no cards, no
+ * shadows. Structure comes from the hairlines between columns and rows.
+ */
+import Section from '~/components/Section.astro';
+import { expertise, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+---
+
+<Section id="expertise" number="03" kicker={t.expertiseKicker} heading={t.expertiseHeading}>
+  <ul class="grid">
+    {
+      expertise.map((item) => (
+        <li class="cell">
+          <span class="cell-index" aria-hidden="true">
+            {item.index}
+          </span>
+          <h3 class="cell-title">{item.title[locale]}</h3>
+          <p class="cell-detail">{item.detail[locale]}</p>
+        </li>
+      ))
+    }
+  </ul>
+</Section>
+
+<style>
+  .grid {
+    display: grid;
+    margin-top: 2.5rem;
+    /* A 1px background showing through the gaps draws every rule at once. */
+    gap: 1px;
+    background: var(--border);
+    border-block: 1px solid var(--border);
+  }
+
+  @media (min-width: 720px) {
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .cell {
+    background: var(--surface);
+    padding: 1.75rem 0;
+  }
+
+  @media (min-width: 720px) {
+    .cell {
+      padding: 1.75rem;
+    }
+
+    /* Keep the outer edges flush with the text column. */
+    .cell:nth-child(odd) {
+      padding-inline-start: 0;
+    }
+
+    .cell:nth-child(even) {
+      padding-inline-end: 0;
+    }
+  }
+
+  .cell-index {
+    font-family: var(--font-mono);
+    font-size: var(--text-micro);
+    color: var(--teal-deep);
+    letter-spacing: 0.08em;
+  }
+
+  .cell-title {
+    margin-top: 0.5rem;
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .cell-detail {
+    margin-top: 0.5rem;
+    font-size: var(--text-meta);
+    line-height: 1.8;
+    color: var(--text-2);
+  }
+</style>

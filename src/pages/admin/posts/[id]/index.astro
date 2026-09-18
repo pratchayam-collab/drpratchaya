@@ -1,0 +1,126 @@
+---
+export const prerender = false;
+import AdminShell from '~/components/admin/AdminShell.astro';
+import { requireAdminPage, redirectToLogin } from '~/lib/auth/guard';
+import { env } from 'cloudflare:workers';
+import { getPost } from '~/lib/admin/posts';
+import { randomToken } from '~/lib/crypto';
+
+const auth = await requireAdminPage(Astro.request);
+if (!auth) return redirectToLogin();
+
+const param = Astro.params.id ?? '';
+const isNew = param === 'new';
+let post = isNew
+  ? {
+      id: 0,
+      translation_key: randomToken(8),
+      language: 'th' as const,
+      slug: '',
+      status: 'draft' as const,
+      title: '',
+      excerpt: '',
+      body_markdown: '',
+      published_at: null,
+      cover_image_key: null,
+      seo_title: null,
+      seo_description: null,
+    }
+  : await getPost(env.DB, Number.parseInt(param, 10));
+
+if (!post) return new Response('Not found', { status: 404 });
+---
+
+<AdminShell title={isNew ? 'บทความใหม่' : 'แก้ไขบทความ'} email={auth.user.email} csrfToken={auth.session.csrfToken} active="posts">
+  <form id="post-form" class="grid gap-3">
+    <label class="text-meta">ภาษา
+      <select name="language" class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3">
+        <option value="th" selected={post.language === 'th'}>ไทย</option>
+        <option value="en" selected={post.language === 'en'}>English</option>
+      </select>
+    </label>
+    <label class="text-meta">Slug<input name="slug" value={post.slug} required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+    <label class="text-meta">หัวข้อ<input name="title" value={post.title} required class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3" /></label>
+    <label class="text-meta">คำโปรย<textarea name="excerpt" rows="2" class="mt-1 w-full rounded-xl border border-rule px-3 py-2">{post.excerpt ?? ''}</textarea></label>
+    <label class="text-meta">เนื้อหา (Markdown)
+      <textarea id="body" name="body_markdown" rows="12" required class="mt-1 w-full rounded-xl border border-rule px-3 py-2 font-mono text-meta">{post.body_markdown}</textarea>
+    </label>
+    <div class="rounded-xl border border-rule bg-teal-wash p-3 text-meta" id="preview"></div>
+    <label class="text-meta">สถานะ
+      <select name="status" class="mt-1 min-h-11 w-full rounded-xl border border-rule px-3">
+        <option value="draft" selected={post.status === 'draft'}>draft</option>
+        <option value="scheduled" selected={post.status === 'scheduled'}>scheduled</option>
+        <option value="published" selected={post.status === 'published'}>published</option>
+      </select>
+    </label>
+    <label class="text-meta">อัปโหลดรูป + alt (บังคับ)
+      <input type="file" id="media-file" accept="image/*" class="mt-1 block w-full text-meta" />
+      <input type="text" id="media-alt" placeholder="คำอธิบายรูปสำหรับ screen reader" class="mt-2 min-h-11 w-full rounded-xl border border-rule px-3" />
+      <button type="button" id="media-upload" class="mt-2 min-h-11 rounded-xl border border-rule px-4">อัปโหลด</button>
+    </label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="min-h-11 flex-1 rounded-xl bg-teal-deep px-4 font-medium text-white sm:flex-none">บันทึก</button>
+      {!isNew && (
+        <button type="button" id="publish-btn" class="min-h-11 flex-1 rounded-xl border border-rule px-4 sm:flex-none">เผยแพร่ทันที</button>
+      )}
+    </div>
+  </form>
+
+  <script define:vars={{ postId: isNew ? null : post.id, translationKey: post.translation_key, csrfToken: auth.session.csrfToken }}>
+    window.__ADMIN_CSRF__ = csrfToken;
+    const hdr = () => ({ 'X-Admin-CSRF': csrfToken, 'content-type': 'application/json' });
+
+    const body = document.getElementById('body');
+    const preview = document.getElementById('preview');
+    function renderPreview() {
+      preview.textContent = body.value.slice(0, 800) + (body.value.length > 800 ? '…' : '');
+    }
+    body?.addEventListener('input', renderPreview);
+    renderPreview();
+
+    document.getElementById('media-upload')?.addEventListener('click', async () => {
+      const file = document.getElementById('media-file').files?.[0];
+      const alt = document.getElementById('media-alt').value.trim();
+      if (!file || !alt) {
+        alert('ต้องมีไฟล์และ alt text');
+        return;
+      }
+      const fd = new FormData();
+      fd.set('file', file);
+      fd.set('altText', alt);
+      if (postId) fd.set('postId', String(postId));
+      await fetch('/api/admin/media/upload', {
+        method: 'POST',
+        headers: { 'X-Admin-CSRF': csrfToken },
+        body: fd,
+        credentials: 'same-origin',
+      });
+      alert('อัปโหลดแล้ว');
+    });
+
+    document.getElementById('post-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const payload = {
+        translation_key: translationKey,
+        language: fd.get('language'),
+        slug: fd.get('slug'),
+        title: fd.get('title'),
+        excerpt: fd.get('excerpt'),
+        body_markdown: fd.get('body_markdown'),
+        status: fd.get('status'),
+      };
+      const url = postId ? `/api/admin/posts/${postId}` : '/api/admin/posts';
+      const method = postId ? 'PATCH' : 'POST';
+      const res = await fetch(url, { method, headers: hdr(), body: JSON.stringify(payload), credentials: 'same-origin' });
+      const data = await res.json();
+      if (data.id && !postId) location.href = `/admin/posts/${data.id}/`;
+      else alert('บันทึกแล้ว');
+    });
+
+    document.getElementById('publish-btn')?.addEventListener('click', async () => {
+      await fetch(`/api/admin/posts/${postId}/publish`, { method: 'POST', headers: hdr(), credentials: 'same-origin' });
+      alert('เผยแพร่แล้ว (cache tags bumped)');
+    });
+  </script>
+</AdminShell>

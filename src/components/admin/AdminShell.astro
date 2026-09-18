@@ -1,0 +1,64 @@
+---
+import '~/styles/global.css';
+
+interface Props {
+  title: string;
+  email: string;
+  csrfToken: string;
+  active?: 'dashboard' | 'appointments' | 'locations' | 'posts';
+}
+
+const { title, email, csrfToken, active = 'dashboard' } = Astro.props;
+const nav = [
+  { key: 'dashboard', href: '/admin/', label: 'ภาพรวม' },
+  { key: 'appointments', href: '/admin/appointments/', label: 'นัดหมาย' },
+  { key: 'locations', href: '/admin/locations/', label: 'สถานที่' },
+  { key: 'posts', href: '/admin/posts/', label: 'บทความ' },
+] as const;
+---
+
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="admin-csrf" content={csrfToken} />
+    <title>{title} · Admin</title>
+  </head>
+  <body class="min-h-dvh bg-surface font-body text-text antialiased">
+    <header class="border-b border-rule bg-ink text-white">
+      <div class="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div>
+          <p class="text-micro text-text-ink-2">drpratchaya admin</p>
+          <h1 class="font-head text-subhead font-semibold text-white">{title}</h1>
+        </div>
+        <p class="text-meta text-text-ink-2">{email}</p>
+      </div>
+      <nav class="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-2 pb-2" aria-label="เมนูหลัก">
+        {
+          nav.map((item) => (
+            <a
+              href={item.href}
+              class:list={[
+                'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full px-4 text-meta font-medium whitespace-nowrap',
+                active === item.key
+                  ? 'bg-teal-deep text-white'
+                  : 'text-text-ink-2 hover:bg-white/10 hover:text-white',
+              ]}
+            >
+              {item.label}
+            </a>
+          ))
+        }
+      </nav>
+    </header>
+    <main class="mx-auto max-w-5xl px-4 py-5">
+      <slot />
+    </main>
+    <script>
+      (window as Window & { __ADMIN_CSRF__?: string }).__ADMIN_CSRF__ =
+        document.querySelector('meta[name="admin-csrf"]')?.getAttribute('content') ?? '';
+    </script>
+  </body>
+</html>

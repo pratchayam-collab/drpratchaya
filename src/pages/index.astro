@@ -1,0 +1,19 @@
+---
+/**
+ * Thai homepage. Thai is the default locale and is served without a prefix.
+ *
+ * Prerendered, like every route on the site today. A future route that needs
+ * request-time rendering opts in with `export const prerender = false`, which
+ * the configured Cloudflare adapter then serves from the Worker.
+ */
+import HomePage from '~/components/HomePage.astro';
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { ui } from '~/i18n/ui';
+
+const locale = 'th' as const;
+const t = ui[locale];
+---
+
+<BaseLayout locale={locale} title={t.homeTitle} description={t.homeDescription}>
+  <HomePage locale={locale} />
+</BaseLayout>

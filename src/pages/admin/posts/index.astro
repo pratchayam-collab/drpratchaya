@@ -1,0 +1,33 @@
+---
+export const prerender = false;
+import AdminShell from '~/components/admin/AdminShell.astro';
+import { requireAdminPage, redirectToLogin } from '~/lib/auth/guard';
+import { env } from 'cloudflare:workers';
+import { listPosts } from '~/lib/admin/posts';
+
+const auth = await requireAdminPage(Astro.request);
+if (!auth) return redirectToLogin();
+const posts = await listPosts(env.DB);
+---
+
+<AdminShell title="บทความ" email={auth.user.email} csrfToken={auth.session.csrfToken} active="posts">
+  <a
+    href="/admin/posts/new/"
+    class="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-deep px-4 text-meta font-medium text-white"
+  >
+    เขียนบทความใหม่
+  </a>
+  <ul class="mt-4 space-y-3">
+    {
+      posts.map((p) => (
+        <li class="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-rule bg-white p-4">
+          <div>
+            <p class="font-head text-subhead font-semibold">{p.title}</p>
+            <p class="text-meta text-text-2">{p.language} · {p.status} · /{p.slug}</p>
+          </div>
+          <a href={`/admin/posts/${p.id}/`} class="min-h-11 inline-flex items-center rounded-xl border border-rule px-4 text-meta">แก้ไข</a>
+        </li>
+      ))
+    }
+  </ul>
+</AdminShell>

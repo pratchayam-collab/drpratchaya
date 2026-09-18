@@ -1,0 +1,99 @@
+---
+/**
+ * About and CV. Three rule-separated timelines — education, fellowships,
+ * experience — each set as a year column in mono beside the entry, the way a
+ * journal sets a chronology.
+ */
+import Placeholder from '~/components/Placeholder.astro';
+import Section from '~/components/Section.astro';
+import {
+  biography,
+  education,
+  experience,
+  fellowships,
+  type CvEntry,
+  type Locale,
+} from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+
+const groups: { heading: string; entries: readonly CvEntry[] }[] = [
+  { heading: t.educationHeading, entries: education },
+  { heading: t.fellowshipsHeading, entries: fellowships },
+  { heading: t.experienceHeading, entries: experience },
+];
+---
+
+<Section id="about" number="02" kicker={t.aboutKicker} heading={t.aboutHeading}>
+  <p class="bio measure">{biography[locale]}</p>
+
+  <div class="cv">
+    {
+      groups.map((group) => (
+        <section class="cv-group">
+          <h3 class="cv-group-heading">{group.heading}</h3>
+          <ol class="ref-list">
+            {group.entries.map((entry) => (
+              <li class="ref-item">
+                <span class="ref-year">{entry.year}</span>
+                <div>
+                  <p class="cv-title">{entry.title[locale]}</p>
+                  <p class="cv-org">
+                    <Placeholder value={entry.org} locale={locale} />
+                  </p>
+                  {entry.detail && <p class="cv-detail">{entry.detail[locale]}</p>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </section>
+      ))
+    }
+  </div>
+</Section>
+
+<style>
+  .bio {
+    margin-top: 1.5rem;
+    font-size: var(--text-prose);
+    line-height: 1.8;
+  }
+
+  .cv {
+    display: grid;
+    gap: 2.5rem;
+    margin-top: 3rem;
+  }
+
+  .cv-group-heading {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+    padding-bottom: 0.875rem;
+    margin-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cv-title {
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.55;
+  }
+
+  .cv-org {
+    margin-top: 0.2rem;
+    font-size: var(--text-meta);
+    color: var(--text-2);
+  }
+
+  .cv-detail {
+    margin-top: 0.4rem;
+    font-size: var(--text-meta);
+    color: var(--text-2);
+  }
+</style>

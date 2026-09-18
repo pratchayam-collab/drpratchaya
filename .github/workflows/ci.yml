@@ -1,0 +1,119 @@
+# Pull-request gate: typecheck, build, Worker config validation, quality checks.
+# Does not deploy or touch remote D1.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CLOUDFLARE_ACCOUNT_ID: "5093b764ea33977e138b71627193ea52"
+
+jobs:
+  validate:
+    name: Build & validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Semantic search corpus matches index manifest
+        run: npm run verify:search
+
+      - name: Build
+        run: npm run build
+
+      - name: Validate Worker config (dry-run)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy --dry-run
+
+      - name: Start static preview server
+        run: |
+          npx --yes serve@14 dist/client -l 4321 &
+          echo $! > serve.pid
+          npx --yes wait-on@8 http://127.0.0.1:4321/
+
+      - name: Lighthouse — accessibility & performance
+        run: |
+          set -euo pipefail
+          run_lighthouse() {
+            local label="$1"
+            local url="$2"
+            npx --yes lighthouse@12 "$url" \
+              --only-categories=accessibility,performance \
+              --chrome-flags="--headless --no-sandbox --disable-gpu" \
+              --output=json \
+              --output-path="lighthouse-${label}.json" \
+              --quiet
+          }
+          run_lighthouse "home-th" "http://127.0.0.1:4321/"
+          run_lighthouse "home-en" "http://127.0.0.1:4321/en/"
+
+      - name: Quality gate — accessibility (blocks merge)
+        run: |
+          node <<'NODE'
+          import fs from "node:fs";
+
+          const MIN_A11Y = 0.95;
+          const MIN_PERF_WARN = 0.85;
+          const reports = [
+            { file: "lighthouse-home-th.json", label: "Thai home (/)" },
+            { file: "lighthouse-home-en.json", label: "English home (/en/)" },
+          ];
+
+          let block = false;
+          for (const { file, label } of reports) {
+            const data = JSON.parse(fs.readFileSync(file, "utf8"));
+            const a11y = data.categories.accessibility?.score ?? 0;
+            const perf = data.categories.performance?.score ?? 0;
+            console.log(
+              `${label}: accessibility=${(a11y * 100).toFixed(0)} performance=${(perf * 100).toFixed(0)} (perf is informational only)`,
+            );
+            if (a11y < MIN_A11Y) {
+              console.error(
+                `BLOCK: ${label} accessibility ${(a11y * 100).toFixed(0)} is below required ${MIN_A11Y * 100}.`,
+              );
+              block = true;
+            }
+            if (perf < MIN_PERF_WARN) {
+              console.warn(
+                `WARN: ${label} performance ${(perf * 100).toFixed(0)} is below design target band (${MIN_PERF_WARN * 100}+ in lab). CI does not enforce LCP on 4G.`,
+              );
+            }
+          }
+          if (block) process.exit(1);
+          NODE
+
+      - name: Upload Lighthouse reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports-pr-${{ github.event.pull_request.number }}
+          path: lighthouse-*.json
+          if-no-files-found: ignore
+
+      - name: Stop preview server
+        if: always()
+        run: |
+          if [ -f serve.pid ]; then kill "$(cat serve.pid)" || true; fi

@@ -1,0 +1,22 @@
+---
+export const prerender = false;
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import BookingFlow from '~/components/booking/BookingFlow.astro';
+import { ui } from '~/i18n/ui';
+
+const locale = 'th';
+const t = ui[locale];
+---
+
+<BaseLayout locale={locale} title={t.bookConsultation} description={t.appointmentIntro}>
+  <main id="main-content" class="page-main">
+    <BookingFlow locale={locale} />
+  </main>
+</BaseLayout>
+
+<style>
+  .page-main {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+  }
+</style>

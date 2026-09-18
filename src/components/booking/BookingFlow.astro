@@ -1,0 +1,439 @@
+---
+import type { Locale } from '~/config/site.config';
+import { bookingConsentText, BOOKING_CONSENT_VERSION } from '~/lib/consent';
+import { localePath, ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? '';
+---
+
+<section
+  class="book-flow"
+  data-locale={locale}
+  data-turnstile={turnstileSiteKey}
+  data-consent-version={BOOKING_CONSENT_VERSION}
+>
+  <header class="book-head">
+    <h1 class="book-title">{t.bookConsultation}</h1>
+    <p class="book-intro">
+      {
+        locale === 'th'
+          ? 'ทุกคำขอเป็นการขอนัดเท่านั้น — ยังไม่ใช่การยืนยันจนกว่าคลินิกจะติดต่อกลับ'
+          : 'Every submission is a request only — not confirmed until the clinic contacts you.'
+      }
+    </p>
+  </header>
+
+  <ol class="book-steps" aria-label="Booking steps">
+    <li data-step-indicator="location" class="active">{locale === 'th' ? 'สถานที่' : 'Location'}</li>
+    <li data-step-indicator="slot">{locale === 'th' ? 'เวลา' : 'Time'}</li>
+    <li data-step-indicator="details">{locale === 'th' ? 'ข้อมูล' : 'Details'}</li>
+    <li data-step-indicator="verify">{locale === 'th' ? 'ยืนยัน' : 'Verify'}</li>
+  </ol>
+
+  <div id="book-panel-location" class="book-panel">
+    <div id="book-locations" class="book-locations"></div>
+  </div>
+
+  <div id="book-panel-slot" class="book-panel hidden">
+    <button type="button" class="book-back" data-back="location">{locale === 'th' ? '← เปลี่ยนสถานที่' : '← Change location'}</button>
+    <div id="book-slots" class="book-slots"></div>
+  </div>
+
+  <div id="book-panel-details" class="book-panel hidden">
+    <button type="button" class="book-back" data-back="slot">{locale === 'th' ? '← เปลี่ยนเวลา' : '← Change time'}</button>
+    <form id="book-form" class="book-form">
+      <label>
+        <span>{locale === 'th' ? 'ชื่อ-นามสกุล' : 'Full name'}</span>
+        <input name="patientName" required minlength="2" autocomplete="name" />
+      </label>
+      <label>
+        <span>{t.phoneLabel}</span>
+        <input name="patientPhone" required type="tel" autocomplete="tel" inputmode="tel" />
+      </label>
+      <label>
+        <span>{t.emailLabel}</span>
+        <input name="patientEmail" required type="email" autocomplete="email" />
+      </label>
+      <label>
+        <span>{locale === 'th' ? 'อาการโดยสังเขป' : 'Brief problem description'}</span>
+        <textarea name="problemDescription" required minlength="10" rows="4"></textarea>
+      </label>
+      <label class="book-consent">
+        <input name="consent" type="checkbox" required value={BOOKING_CONSENT_VERSION} />
+        <span>
+          {bookingConsentText[locale]}
+          {' '}
+          <a href={localePath(locale, 'privacy/')} target="_blank" rel="noopener">
+            {locale === 'th' ? '(นโยบายความเป็นส่วนตัว)' : '(privacy policy)'}
+          </a>
+        </span>
+      </label>
+      <div class="cf-turnstile" data-sitekey={turnstileSiteKey}></div>
+      <button type="submit" class="book-primary">{locale === 'th' ? 'ส่งรหัสยืนยัน' : 'Send verification code'}</button>
+    </form>
+    <p id="book-form-error" class="book-error" hidden></p>
+  </div>
+
+  <div id="book-panel-verify" class="book-panel hidden">
+    <p class="book-verify-hint">{locale === 'th' ? 'กรอกรหัส 6 หลักที่ส่งไปยังอีเมลของคุณ' : 'Enter the 6-digit code sent to your email'}</p>
+    <form id="book-verify-form" class="book-form">
+      <label>
+        <span>{locale === 'th' ? 'รหัสยืนยัน' : 'Verification code'}</span>
+        <input name="code" required pattern="[0-9]{6}" inputmode="numeric" maxlength="6" class="book-otp" />
+      </label>
+      <button type="submit" class="book-primary">{locale === 'th' ? 'ส่งคำขอนัดหมาย' : 'Submit request'}</button>
+    </form>
+    <p id="book-verify-error" class="book-error" hidden></p>
+  </div>
+
+  <div id="book-panel-done" class="book-panel hidden">
+    <h2 id="book-done-heading" class="book-done-title"></h2>
+    <p id="book-done-body" class="book-done-body"></p>
+    <a id="book-manage-link" class="book-primary book-link" href="#"></a>
+  </div>
+</section>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script is:inline>
+  const root = document.querySelector('.book-flow');
+  if (!root) throw new Error('book-flow missing');
+  const locale = root.dataset.locale === 'en' ? 'en' : 'th';
+  const BOOKING_CONSENT_VERSION = root.dataset.consentVersion ?? '';
+  const state = { locationId: 0, slotId: 0, sessionId: '' };
+
+  const panels = {
+    location: document.getElementById('book-panel-location'),
+    slot: document.getElementById('book-panel-slot'),
+    details: document.getElementById('book-panel-details'),
+    verify: document.getElementById('book-panel-verify'),
+    done: document.getElementById('book-panel-done'),
+  };
+
+  function showStep(step) {
+    Object.entries(panels).forEach(([k, el]) => el?.classList.toggle('hidden', k !== step));
+    root.querySelectorAll('[data-step-indicator]').forEach((el) => {
+      el.classList.toggle('active', el.getAttribute('data-step-indicator') === step);
+    });
+  }
+
+  async function loadLocations() {
+    const res = await fetch('/api/book/locations');
+    const data = await res.json();
+    const container = document.getElementById('book-locations');
+    if (!container) return;
+    container.innerHTML = '';
+    for (const loc of data.locations ?? []) {
+      const card = document.createElement('article');
+      card.className = 'book-location-card';
+      const name = loc.name[locale];
+      if (loc.bookingMode === 'external') {
+        card.innerHTML = `<h3>${name}</h3><p class="book-muted">${locale === 'th' ? 'จองผ่านโรงพยาบาลเท่านั้น' : 'Book via hospital only'}</p>`;
+        const channels = document.createElement('div');
+        channels.className = 'book-external';
+        if (loc.external?.phone) channels.innerHTML += `<a class="book-chip" href="tel:${loc.external.phone}">${loc.external.phone}</a>`;
+        if (loc.external?.bookingUrl) {
+          channels.innerHTML += `<a class="book-chip" href="${loc.external.bookingUrl}" rel="noopener">${locale === 'th' ? 'จองออนไลน์' : 'Hospital booking'}</a>`;
+        }
+        card.appendChild(channels);
+      } else {
+        card.innerHTML = `<h3>${name}</h3><p class="book-muted">${locale === 'th' ? 'เลือกช่วงเวลาที่ว่าง' : 'Choose an available time'}</p>`;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'book-primary';
+        btn.textContent = locale === 'th' ? 'ดูช่วงเวลา' : 'View times';
+        btn.addEventListener('click', () => {
+          state.locationId = loc.id;
+          loadSlots();
+          showStep('slot');
+        });
+        card.appendChild(btn);
+      }
+      container.appendChild(card);
+    }
+  }
+
+  async function loadSlots() {
+    const res = await fetch(`/api/book/slots?locationId=${state.locationId}&locale=${locale}`);
+    const data = await res.json();
+    const container = document.getElementById('book-slots');
+    if (!container) return;
+    container.innerHTML = '';
+    if (data.externalOnly || (data.slots?.length ?? 0) === 0) {
+      container.innerHTML = `<p class="book-muted">${locale === 'th' ? 'ไม่มีช่วงเวลาว่าง' : 'No available times'}</p>`;
+      return;
+    }
+    for (const slot of data.slots) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'book-slot-btn';
+      btn.textContent = slot.label;
+      btn.addEventListener('click', () => {
+        state.slotId = slot.id;
+        showStep('details');
+      });
+      container.appendChild(btn);
+    }
+  }
+
+  root.querySelectorAll('.book-back').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-back');
+      if (target) showStep(target);
+    });
+  });
+
+  document.getElementById('book-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const err = document.getElementById('book-form-error');
+    err?.setAttribute('hidden', '');
+    const fd = new FormData(form);
+    const turnstileToken =
+      form.querySelector('[name="cf-turnstile-response"]')?.value ??
+      (import.meta.env.DEV ? 'dev-bypass' : '');
+    const body = {
+      turnstileToken,
+      slotId: state.slotId,
+      patientName: String(fd.get('patientName')),
+      patientPhone: String(fd.get('patientPhone')),
+      patientEmail: String(fd.get('patientEmail')),
+      problemDescription: String(fd.get('problemDescription')),
+      consentAccepted: fd.get('consent') === BOOKING_CONSENT_VERSION,
+      consentVersion: BOOKING_CONSENT_VERSION,
+      locale,
+    };
+    const res = await fetch('/api/book/otp/request', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (err) {
+        err.textContent = data.error?.message ?? 'Error';
+        err.removeAttribute('hidden');
+      }
+      return;
+    }
+    state.sessionId = data.sessionId;
+    if (data.devCode && import.meta.env.DEV) {
+      console.info('[dev] OTP', data.devCode);
+    }
+    showStep('verify');
+  });
+
+  document.getElementById('book-verify-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const err = document.getElementById('book-verify-error');
+    err?.setAttribute('hidden', '');
+    const fd = new FormData(form);
+    const res = await fetch('/api/book/otp/verify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ sessionId: state.sessionId, code: String(fd.get('code')) }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      if (err) {
+        err.textContent = data.error?.message ?? 'Error';
+        err.removeAttribute('hidden');
+      }
+      return;
+    }
+    const doneHeading = document.getElementById('book-done-heading');
+    const doneBody = document.getElementById('book-done-body');
+    if (doneHeading) doneHeading.textContent = data.acknowledgement.heading;
+    if (doneBody) doneBody.textContent = data.acknowledgement.body;
+    const link = document.getElementById('book-manage-link');
+    if (link) {
+      link.href = data.managePath;
+      link.textContent = locale === 'th' ? 'จัดการคำขอนัดหมาย' : 'Manage your request';
+    }
+    showStep('done');
+  });
+
+  loadLocations();
+</script>
+
+<style>
+  .book-flow {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 3rem;
+    overflow-x: hidden;
+  }
+
+  .book-title {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .book-intro {
+    margin-top: 0.5rem;
+    font-size: var(--text-meta);
+    line-height: 1.7;
+    color: var(--text-2);
+  }
+
+  .book-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 1.5rem 0;
+    list-style: none;
+    padding: 0;
+  }
+
+  .book-steps li {
+    font-size: var(--text-micro);
+    padding: 0.5rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+  }
+
+  .book-steps li.active {
+    border-color: var(--teal-deep);
+    color: var(--teal-deep);
+    font-weight: 600;
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  .book-locations,
+  .book-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .book-location-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    background: var(--surface);
+  }
+
+  .book-muted {
+    font-size: var(--text-meta);
+    color: var(--text-2);
+    margin-top: 0.35rem;
+  }
+
+  .book-primary,
+  .book-slot-btn,
+  .book-chip {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+    padding: 0.625rem 1rem;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: var(--text-meta);
+  }
+
+  .book-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--teal-deep);
+    color: #fff;
+    border: none;
+    width: 100%;
+    margin-top: 0.75rem;
+    cursor: pointer;
+  }
+
+  .book-slot-btn {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .book-chip {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    margin-right: 0.5rem;
+    margin-top: 0.5rem;
+  }
+
+  .book-form label {
+    display: block;
+    margin-top: 1rem;
+    font-size: var(--text-meta);
+  }
+
+  .book-form input,
+  .book-form textarea {
+    width: 100%;
+    margin-top: 0.35rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font: inherit;
+  }
+
+  .book-consent {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .book-consent input {
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  .book-back {
+    min-height: 2.75rem;
+    margin-bottom: 0.75rem;
+    background: none;
+    border: none;
+    color: var(--teal-deep);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .book-error {
+    color: #b42318;
+    font-size: var(--text-meta);
+    margin-top: 0.75rem;
+  }
+
+  .book-done-title {
+    font-size: var(--text-subhead);
+    font-weight: 600;
+  }
+
+  .book-done-body {
+    margin-top: 0.75rem;
+    line-height: 1.7;
+    font-size: var(--text-meta);
+  }
+
+  .book-link {
+    text-decoration: none;
+  }
+
+  .cf-turnstile {
+    margin-top: 1rem;
+    max-width: 100%;
+    overflow: hidden;
+  }
+</style>

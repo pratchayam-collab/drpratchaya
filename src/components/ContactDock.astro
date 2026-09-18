@@ -1,0 +1,130 @@
+---
+/**
+ * Fixed mobile contact dock: LINE, telephone, appointment.
+ *
+ * Thai patients arrive on a phone, so an appointment action has to be reachable
+ * from any scroll position. The dock sits above the safe-area inset, and the
+ * page reserves `--dock-height` of bottom padding so it can never cover the
+ * last line of content.
+ *
+ * None of the three destinations is known yet. Rather than fabricate a number
+ * or a LINE ID, an unresolved action routes to the contact section, which
+ * states plainly what is still missing. Unresolved actions keep full label
+ * contrast — an unfilled value must read as unfilled, not as broken.
+ */
+import { contact, isPlaceholder, type Locale } from '~/config/site.config';
+import { ui } from '~/i18n/ui';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const t = ui[locale];
+
+const pending = {
+  th: 'ยังไม่เปิดใช้งาน — ดูช่องทางติดต่อ',
+  en: 'not available yet — see contact options',
+} as const;
+
+const actions = [
+  {
+    key: 'line',
+    label: t.line,
+    href: isPlaceholder(contact.lineOfficialAccount) ? '#contact' : contact.lineOfficialAccount,
+    resolved: !isPlaceholder(contact.lineOfficialAccount),
+  },
+  {
+    key: 'call',
+    label: t.call,
+    href: isPlaceholder(contact.phone) ? '#contact' : `tel:${contact.phone}`,
+    resolved: !isPlaceholder(contact.phone),
+  },
+  {
+    key: 'book',
+    label: t.book,
+    href: isPlaceholder(contact.bookingUrl) ? '#appointment' : contact.bookingUrl,
+    resolved: !isPlaceholder(contact.bookingUrl),
+  },
+] as const;
+---
+
+<div class="dock">
+  <nav class="dock-inner" aria-label={t.contactHeading}>
+    {
+      actions.map((action) => (
+        <a
+          href={action.href}
+          class:list={['dock-action', action.key === 'book' && 'dock-action-primary']}
+          aria-label={action.resolved ? action.label : `${action.label} — ${pending[locale]}`}
+          data-pending={action.resolved ? undefined : 'true'}
+        >
+          {action.label}
+        </a>
+      ))
+    }
+  </nav>
+</div>
+
+<style>
+  .dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 60;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .dock-inner {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+  }
+
+  .dock-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3.5rem; /* well above the 44px minimum */
+    background: var(--surface);
+    color: var(--ink);
+    font-size: var(--text-meta);
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .dock-action:hover {
+    text-decoration: none;
+    background: var(--teal-wash);
+  }
+
+  .dock-action-primary {
+    background: var(--teal-deep);
+    color: #ffffff;
+  }
+
+  .dock-action-primary:hover {
+    background: var(--ink);
+  }
+
+  /* A dashed underline marks an action whose destination the owner has not
+     supplied. Contrast is unchanged, so the action does not read as disabled. */
+  .dock-action[data-pending] {
+    text-decoration: underline dashed;
+    text-decoration-color: var(--text-2);
+    text-underline-offset: 0.3em;
+  }
+
+  .dock-action-primary[data-pending] {
+    text-decoration-color: var(--teal-wash);
+  }
+
+  @media (min-width: 1024px) {
+    .dock {
+      display: none;
+    }
+  }
+</style>

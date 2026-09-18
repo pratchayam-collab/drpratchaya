@@ -1,0 +1,171 @@
+---
+export const prerender = false;
+import { env } from 'cloudflare:workers';
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import { resolveManageAccess } from '~/lib/magic-link';
+import { formatSlotBangkok } from '~/lib/timezone';
+
+const locale = 'th';
+const token = Astro.params.token ?? '';
+const payload = Astro.url.searchParams.get('p');
+
+const access = token && payload ? await resolveManageAccess(env.DB, token, payload) : null;
+
+let details: {
+  status: string;
+  slotLabel: string;
+  locationName: string;
+} | null = null;
+
+if (access) {
+  const row = await env.DB.prepare(
+    `SELECT a.status, s.starts_at, s.ends_at, l.name_th, l.name_en
+     FROM appointments a
+     JOIN slots s ON s.id = a.slot_id
+     JOIN locations l ON l.id = s.location_id
+     WHERE a.id = ?`,
+  )
+    .bind(access.id)
+    .first<{
+      status: string;
+      starts_at: string;
+      ends_at: string;
+      name_th: string;
+      name_en: string;
+    }>();
+  if (row) {
+    details = {
+      status: row.status,
+      slotLabel: formatSlotBangkok(row.starts_at, row.ends_at, locale),
+      locationName: row.name_th,
+    };
+  }
+}
+---
+
+<BaseLayout locale={locale} title="จัดการคำขอนัดหมาย" description="ดูหรือยกเลิกคำขอนัดหมาย">
+  <main id="main-content" class="manage-page">
+    {
+      !details ? (
+        <p class="manage-muted">ไม่พบคำขอ หรือลิงก์หมดอายุ</p>
+      ) : (
+        <article class="manage-card" data-token={token} data-payload={payload}>
+          <h1>คำขอนัดหมายของคุณ</h1>
+          <p class="manage-status">
+            สถานะ: <strong>{details.status}</strong>
+          </p>
+          <p>{details.locationName}</p>
+          <p class="manage-time">{details.slotLabel}</p>
+          <p class="manage-note">คำขอนี้ยังไม่ใช่การยืนยันนัด จนกว่าคลินิกจะติดต่อกลับ</p>
+          {['pending', 'confirmed'].includes(details.status) && (
+            <div class="manage-actions">
+              <button type="button" class="manage-btn" id="cancel-btn">ยกเลิกคำขอ</button>
+              <form id="reschedule-form" class="manage-reschedule">
+                <label>
+                  ขอเลื่อนนัด (ทีมงานจะติดต่อกลับ)
+                  <textarea name="message" required rows="3" minlength="5" />
+                </label>
+                <button type="submit" class="manage-btn secondary">ส่งคำขอเลื่อน</button>
+              </form>
+            </div>
+          )}
+          <p id="manage-msg" class="manage-msg" hidden></p>
+        </article>
+      )
+    }
+  </main>
+</BaseLayout>
+
+<script is:inline>
+  const card = document.querySelector('.manage-card');
+  if (card) {
+    const token = card.getAttribute('data-token');
+    const payload = card.getAttribute('data-payload');
+    document.getElementById('cancel-btn')?.addEventListener('click', async () => {
+      const res = await fetch('/api/book/manage/cancel', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, payload }),
+      });
+      const data = await res.json();
+      const msg = document.getElementById('manage-msg');
+      if (msg) {
+        msg.textContent = data.ok ? 'ยกเลิกคำขอแล้ว' : data.error?.message ?? 'ไม่สำเร็จ';
+        msg.removeAttribute('hidden');
+      }
+    });
+    document.getElementById('reschedule-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const res = await fetch('/api/book/manage/reschedule-request', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ token, payload, message: String(fd.get('message')) }),
+      });
+      const data = await res.json();
+      const msg = document.getElementById('manage-msg');
+      if (msg) {
+        msg.textContent = data.ok ? 'ส่งคำขอเลื่อนแล้ว' : data.error?.message ?? 'ไม่สำเร็จ';
+        msg.removeAttribute('hidden');
+      }
+    });
+  }
+</script>
+
+<style>
+  .manage-page {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1.25rem 1rem 3rem;
+    overflow-x: hidden;
+  }
+
+  .manage-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    background: var(--surface);
+  }
+
+  .manage-time {
+    font-family: var(--font-mono);
+    margin-top: 0.5rem;
+  }
+
+  .manage-note {
+    margin-top: 1rem;
+    font-size: var(--text-meta);
+    color: var(--text-2);
+  }
+
+  .manage-btn {
+    min-height: 2.75rem;
+    width: 100%;
+    margin-top: 0.75rem;
+    border-radius: 10px;
+    border: none;
+    background: var(--teal-deep);
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .manage-btn.secondary {
+    background: var(--surface);
+    color: var(--teal-deep);
+    border: 1px solid var(--border);
+  }
+
+  .manage-reschedule textarea {
+    width: 100%;
+    margin-top: 0.35rem;
+    min-height: 4.5rem;
+    padding: 0.5rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .manage-muted {
+    color: var(--text-2);
+  }
+</style>
