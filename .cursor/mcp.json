@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "agent-memory": {
+    "DRPrat-agent-memory": {
       "type": "stdio",
       "command": "python3",
       "args": ["${env:ONBOARD_HOME}/onboard_server.py"],
